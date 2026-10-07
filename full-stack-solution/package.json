@@ -5,18 +5,23 @@
   "scripts": {},
   "private": true,
   "dependencies": {
+    "express": "^5.1.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
+    "@nx/esbuild": "23.2.1",
     "@nx/eslint": "23.2.1",
     "@nx/eslint-plugin": "23.2.1",
     "@nx/jest": "23.2.1",
     "@nx/js": "23.2.1",
+    "@nx/node": "^23.2.1",
     "@nx/workspace": "23.2.1",
     "@swc/helpers": "~0.5.18",
+    "@types/express": "^5.0.0",
     "@types/jest": "~30.0.0",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.27.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "jest": "~30.3.0",
