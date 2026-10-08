@@ -5,7 +5,11 @@
   "scripts": {},
   "private": true,
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^18.0.6",
     "express": "^5.1.0",
+    "pg": "^8.23.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -21,6 +25,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "~30.0.0",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
     "esbuild": "^0.27.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
@@ -28,6 +33,7 @@
     "jest-environment-node": "~30.3.0",
     "jest-util": "~30.3.0",
     "nx": "23.2.1",
+    "prisma": "^7.10.0",
     "ts-jest": "^29.4.7",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
