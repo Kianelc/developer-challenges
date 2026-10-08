@@ -10,10 +10,15 @@ export const envSchema = z.object({
   SEED_USER_PASSWORD: z.string().min(8),
 });
 
-export type Env = z.infer<typeof envSchema>;
+const appEnvSchema = envSchema.omit({
+  SEED_USER_EMAIL: true,
+  SEED_USER_PASSWORD: true,
+});
+
+export type Env = z.infer<typeof appEnvSchema>;
 
 export function loadEnv(): Env {
-  const result = envSchema.safeParse(process.env);
+  const result = appEnvSchema.safeParse(process.env);
   if (!result.success) {
     const details = result.error.issues
       .map((issue) => `${issue.path.join(".")}: ${issue.message}`)

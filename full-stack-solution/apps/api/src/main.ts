@@ -1,14 +1,13 @@
-import express from 'express';
+import { createApp } from "./app";
+import { loadEnv } from "./config/env";
 
-const host = process.env.HOST ?? 'localhost';
-const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+const env = loadEnv();
+const app = createApp();
 
-const app = express();
-
-app.get('/', (req, res) => {
-    res.send({ 'message': 'Hello API'});
-});
-
-app.listen(port, host, () => {
-    console.log(`[ ready ] http://${host}:${port}`);
+app.listen(env.PORT, (error?: Error) => {
+  if (error) {
+    console.error(error);
+    process.exit(1);
+  }
+  console.log(`API listening on http://localhost:${env.PORT}/api`);
 });
