@@ -9,14 +9,14 @@ datasource db {
 }
 
 enum MachineType {
-  Pump
   Fan
+  Pump
 }
 
 enum SensorModel {
+  HF_PLUS @map("HF+")
   TcAg
   TcAs
-  HF_PLUS @map("HF+")
 }
 
 model User {

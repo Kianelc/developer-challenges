@@ -1,8 +1,8 @@
 -- CreateEnum
-CREATE TYPE "MachineType" AS ENUM ('Pump', 'Fan');
+CREATE TYPE "MachineType" AS ENUM ('Fan', 'Pump');
 
 -- CreateEnum
-CREATE TYPE "SensorModel" AS ENUM ('TcAg', 'TcAs', 'HF+');
+CREATE TYPE "SensorModel" AS ENUM ('HF+', 'TcAg', 'TcAs');
 
 -- CreateTable
 CREATE TABLE "User" (
