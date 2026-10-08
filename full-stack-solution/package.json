@@ -7,6 +7,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.6",
     "express": "^5.1.0",
     "pg": "^8.23.1",
@@ -37,6 +38,7 @@
     "ts-jest": "^29.4.7",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.58.0"
   }
