@@ -1,7 +1,6 @@
 import { hash } from "bcryptjs";
 import { envSchema } from "../src/config/env";
 import { createPrismaClient } from "../src/database/prisma";
-import { error } from "console";
 
 const BCRYPT_ROUNDS = 10;
 
