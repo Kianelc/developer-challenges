@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MachineType {
+  Pump
+  Fan
+}
+
+enum SensorModel {
+  TcAg
+  TcAs
+  HF_PLUS @map("HF+")
+}
+
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  password String
+  createdAt DateTime @default(now())
+  machines Machine[]
+  monitoringPoints MonitoringPoint[]
+  sensors Sensor[]
+}
+
+model Machine {
+  id String @id @default(uuid())
+  name String
+  type MachineType
+  createdById String
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  monitoringPoints MonitoringPoint[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MonitoringPoint {
+  id String @id @default(uuid())
+  name String
+  machineId String
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sensor Sensor?
+  readings Reading[]
+  createdAt DateTime @default(now())
+
+  @@index([machineId])
+}
+
+model Sensor {
+  id String @id
+  model SensorModel
+  monitoringPointId String @unique
+  monitoringPoint MonitoringPoint @relation(fields: [monitoringPointId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+}
+
+model Reading {
+  id Int @id @default(autoincrement())
+  monitoringPointId String
+  timestamp DateTime
+  value Float
+  monitoringPoint MonitoringPoint @relation(fields: [monitoringPointId], references: [id], onDelete: Cascade)
+
+  @@index([monitoringPointId, timestamp])
+}
