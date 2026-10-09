@@ -7,9 +7,10 @@ import {
 export interface AppRouters {
   auth: Router;
   machines: Router;
+  monitoringPoints: Router;
 }
 
-export function createApp(routers: AppRouters): Express {
+export function createApp(routers: Partial<AppRouters>): Express {
   const app = express();
   app.use(express.json());
 
@@ -17,8 +18,9 @@ export function createApp(routers: AppRouters): Express {
     res.json({ status: "ok" });
   });
 
-  app.use("/api/auth", routers.auth);
-  app.use("/api/machines", routers.machines);
+  if (routers.auth) app.use("/api/auth", routers.auth);
+  if (routers.machines) app.use("/api/machines", routers.machines);
+  if (routers.monitoringPoints) app.use("/api", routers.monitoringPoints);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
