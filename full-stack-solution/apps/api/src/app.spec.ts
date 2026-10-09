@@ -1,8 +1,9 @@
 import request from "supertest";
 import { createApp } from "./app";
+import { Router } from "express";
 
 describe("App", () => {
-  const app = createApp();
+  const app = createApp({ auth: Router() });
 
   it("answers the health check", async () => {
     const response = await request(app).get("/api/health");
