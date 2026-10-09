@@ -6,6 +6,7 @@ import {
 
 export interface AppRouters {
   auth: Router;
+  machines: Router;
 }
 
 export function createApp(routers: AppRouters): Express {
@@ -17,6 +18,7 @@ export function createApp(routers: AppRouters): Express {
   });
 
   app.use("/api/auth", routers.auth);
+  app.use("/api/machines", routers.machines);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

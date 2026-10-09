@@ -1,5 +1,5 @@
 import { hash } from "bcryptjs";
-import type { Express } from "express";
+import { Router, type Express } from "express";
 import request from "supertest";
 import { createApp } from "../../app";
 import { createAuthModule } from "./auth.module";
@@ -22,7 +22,7 @@ describe("auth routes", () => {
       repository,
       new TokenService("s".repeat(32), "1h"),
     );
-    app = createApp({ auth: auth.router });
+    app = createApp({ auth: auth.router, machines: Router() });
   });
 
   const login = () =>

@@ -3,7 +3,7 @@ import { createApp } from "./app";
 import { Router } from "express";
 
 describe("App", () => {
-  const app = createApp({ auth: Router() });
+  const app = createApp({ auth: Router(), machines: Router() });
 
   it("answers the health check", async () => {
     const response = await request(app).get("/api/health");
