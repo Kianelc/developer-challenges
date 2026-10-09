@@ -54,3 +54,5 @@ Thumbs.db
 
 # Prisma generated client
 apps/api/src/generated
+
+CLAUDE.md
