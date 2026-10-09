@@ -65,11 +65,10 @@ model Sensor {
 }
 
 model Reading {
-  id Int @id @default(autoincrement())
   monitoringPointId String
   timestamp DateTime
   value Float
   monitoringPoint MonitoringPoint @relation(fields: [monitoringPointId], references: [id], onDelete: Cascade)
 
-  @@index([monitoringPointId, timestamp])
+  @@id([monitoringPointId, timestamp])
 }
