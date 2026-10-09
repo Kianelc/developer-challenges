@@ -2,6 +2,7 @@ import {
   assignSensorSchema,
   getAllowedSensorModels,
   isSensorModelAllowed,
+  getBlockedSensorModels,
 } from "./sensor";
 
 describe("isSensorModelAllowed", () => {
@@ -25,6 +26,16 @@ describe("getAllowedSensorModels", () => {
 
   it("returns evey model for a Fan", () => {
     expect(getAllowedSensorModels("Fan")).toEqual(["TcAg", "TcAs", "HF+"]);
+  });
+});
+
+describe("getBlockedSensorModels", () => {
+  it("blocks TcAg and TcAs on a Pump", () => {
+    expect(getBlockedSensorModels("Pump")).toEqual(["TcAg", "TcAs"]);
+  });
+
+  it("blocks nothing on a Fan", () => {
+    expect(getBlockedSensorModels("Fan")).toEqual([]);
   });
 });
 

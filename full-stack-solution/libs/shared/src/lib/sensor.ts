@@ -32,6 +32,14 @@ export function getAllowedSensorModels(
   );
 }
 
+export function getBlockedSensorModels(
+  machineType: MachineType,
+): SensorModel[] {
+  return SENSOR_MODELS.filter(
+    (model) => !isSensorModelAllowed(machineType, model),
+  );
+}
+
 export function sensorNotAllowedMessage(
   machineType: MachineType,
   sensorModel: SensorModel,
