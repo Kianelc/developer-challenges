@@ -46,3 +46,9 @@ export function sensorNotAllowedMessage(
 ): string {
   return `Sensor model ${sensorModel} cannot be used on ${machineType} machines`;
 }
+
+export interface Sensor {
+  id: string;
+  model: SensorModel;
+  monitoringPointId: string;
+}
