@@ -8,6 +8,8 @@ import { createMachinesModule } from "./modules/machines/machines.module";
 import { PrismaMachinesRepository } from "./modules/machines/machines.repository";
 import { createMonitoringPointsModule } from "./modules/monitoring-points/monitoring-points.module";
 import { PrismaMonitoringPointsRepository } from "./modules/monitoring-points/monitoring-points.repository";
+import { createTimeSeriesModule } from "./modules/time-series/time-series.module";
+import { PrismaTimeSeriesRepository } from "./modules/time-series/time-series.repository";
 
 export function createRouters(env: Env, prisma: PrismaClient): AppRouters {
   const tokenService = new TokenService(env.JWT_SECRET, env.JWT_EXPIRES_IN);
@@ -20,10 +22,15 @@ export function createRouters(env: Env, prisma: PrismaClient): AppRouters {
     new PrismaMonitoringPointsRepository(prisma),
     auth.authenticate,
   );
+  const timeSeries = createTimeSeriesModule(
+    new PrismaTimeSeriesRepository(prisma),
+    auth.authenticate,
+  );
 
   return {
     auth: auth.router,
     machines: machines.router,
     monitoringPoints: monitoringPoints.router,
+    timeSeries: timeSeries.router,
   };
 }
