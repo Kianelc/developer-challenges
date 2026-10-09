@@ -1,96 +1,219 @@
-# FullStackSolution
+# Dynamox Full-Stack Challenge — Kiane Casagrande
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+TypeScript monorepo (Nx) with an Express 5 REST API backed by PostgreSQL.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+- `apps/api` — Express 5 + Prisma 7 + PostgreSQL 16
+- `apps/web` — Next.js + React + MUI 5 + Redux Toolkit _(not implemented yet)_
+- `libs/shared` — Zod schemas, domain types and business rules shared between apps
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+---
 
-## Run tasks
+## Requirements
 
-To run tasks with Nx use:
+- Node.js 20+
+- Docker (for PostgreSQL)
+- npm 10+
 
-```sh
-npx nx <target> <project-name>
+---
+
+## Setup
+
+### 1. Clone and install dependencies
+
+```bash
+git clone <repo-url>
+cd full-stack-solution
+npm install
 ```
 
-For example:
+### 2. Configure environment variables
 
-```sh
-npx nx build myproject
+```bash
+cp .env.example .env
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+Edit `.env` and fill in all required fields:
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+| Variable           | Description                                                       |
+|--------------------|-------------------------------------------------------------------|
+| `POSTGRES_USER`    | PostgreSQL username (choose any value)                            |
+| `POSTGRES_PASSWORD`| PostgreSQL password (choose any value)                            |
+| `POSTGRES_DB`      | Database name (default: `dynamox`)                                |
+| `POSTGRES_PORT`    | Host port mapped to PostgreSQL (default: `5432`)                  |
+| `DATABASE_URL`     | Prisma connection string — must match the credentials above       |
+| `PORT`             | API port (default: `3000`)                                        |
+| `JWT_SECRET`       | Random string ≥ 32 characters (`openssl rand -hex 32`)            |
+| `JWT_EXPIRES_IN`   | Token lifetime (default: `1h`)                                    |
+| `SEED_USER_EMAIL`  | Email for the fixed login user created by the seed                |
+| `SEED_USER_PASSWORD` | Password for that user (min. 8 characters)                      |
 
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
+Example `DATABASE_URL`:
+```
+DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/dynamox?schema=public
 ```
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+### 3. Start the database
 
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
-
-# Generate a library
-npx nx g @nx/react:lib some-lib
+```bash
+docker compose up -d
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+Wait for the health check to pass (the `db` service shows `(healthy)`):
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Set up CI!
-
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
+```bash
+docker compose ps
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+### 4. Run migrations and seed the database
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+```bash
+npx prisma migrate deploy   # apply all migrations
+npx prisma db seed          # create the login user from SEED_USER_EMAIL / SEED_USER_PASSWORD
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### 5. Start the API
 
-## Install Nx Console
+```bash
+npx nx serve api
+```
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+The API is available at `http://localhost:3000/api`.
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Health check: `GET http://localhost:3000/api/health` → `{"status":"ok"}`
 
-## Useful links
+---
 
-Learn more:
+## Running tests and lint
 
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+```bash
+npx nx run-many -t test lint -p shared api
+```
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
+
+## API reference
+
+All endpoints except `POST /api/auth/login` require the header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+### Authentication
+
+| Method | Path              | Body / query                        | Response                              |
+|--------|-------------------|-------------------------------------|---------------------------------------|
+| POST   | `/api/auth/login` | `{ email, password }`               | `{ accessToken, user: { id, email } }`|
+| GET    | `/api/auth/me`    | —                                   | `{ id, email }`                       |
+| POST   | `/api/auth/logout`| —                                   | 204                                   |
+
+### Machines
+
+| Method | Path                  | Body                      | Response               |
+|--------|-----------------------|---------------------------|------------------------|
+| GET    | `/api/machines`       | —                         | `Machine[]`            |
+| POST   | `/api/machines`       | `{ name, type }`          | `Machine` (201)        |
+| PATCH  | `/api/machines/:id`   | `{ name?, type? }`        | `Machine`              |
+| DELETE | `/api/machines/:id`   | —                         | 204                    |
+
+`type` must be `"Pump"` or `"Fan"`.
+
+### Monitoring points
+
+| Method | Path                                       | Body / query                       | Response                    |
+|--------|--------------------------------------------|------------------------------------|------------------------------|
+| POST   | `/api/machines/:id/monitoring-points`      | `{ name }`                         | `MonitoringPoint` (201)      |
+| GET    | `/api/monitoring-points`                   | `page`, `pageSize`, `sortBy`, `order` | `Paginated<MonitoringPoint>` |
+| PATCH  | `/api/monitoring-points/:id`               | `{ name }`                         | `MonitoringPoint`            |
+| DELETE | `/api/monitoring-points/:id`               | —                                  | 204                          |
+| PUT    | `/api/monitoring-points/:id/sensor`        | `{ id, model }`                    | `Sensor`                     |
+| DELETE | `/api/monitoring-points/:id/sensor`        | —                                  | 204                          |
+
+**List query parameters:**
+
+| Parameter  | Default        | Allowed values                                     |
+|------------|----------------|----------------------------------------------------|
+| `page`     | `1`            | integer ≥ 1                                        |
+| `pageSize` | `5`            | 1–50                                               |
+| `sortBy`   | `machineName`  | `machineName`, `machineType`, `name`, `sensorModel`|
+| `order`    | `asc`          | `asc`, `desc`                                      |
+
+Sensor `model` must be `"TcAg"`, `"TcAs"` or `"HF+"`.  
+`TcAg` and `TcAs` are **not** allowed on `Pump` machines (returns 422).
+
+### Time-series data
+
+| Method | Path                                            | Body / query              | Response                   |
+|--------|-------------------------------------------------|---------------------------|----------------------------|
+| POST   | `/api/monitoring-points/:id/readings`           | `{ readings: Reading[] }` | `{ received, inserted }` (201) |
+| GET    | `/api/monitoring-points/:id/readings`           | `from?`, `to?`            | `Reading[]`                |
+| GET    | `/api/monitoring-points/:id/readings/metrics`   | `from?`, `to?`            | `ReadingsMetrics`          |
+| GET    | `/api/readings/count`                           | —                         | `{ count }`                |
+| DELETE | `/api/monitoring-points/:id/readings`           | `from?`, `to?`            | `{ deleted }`              |
+
+`Reading`: `{ timestamp: string (ISO 8601 with time zone), value: number }`  
+Batch limit: **5 000 readings** per request.  
+`from` and `to` are both inclusive. Duplicate `(monitoringPointId, timestamp)` pairs are silently skipped.
+
+### Error format
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR | NOT_FOUND | UNAUTHORIZED | CONFLICT | BUSINESS_RULE_VIOLATION | INTERNAL_ERROR",
+    "message": "Human-readable description",
+    "details": [{ "path": "field", "message": "what is wrong" }]
+  }
+}
+```
+
+---
+
+## Frontend integration
+
+The frontend (`apps/web`) will use **Next.js rewrites** to proxy all `/api/*` requests to the backend, avoiding CORS entirely:
+
+```ts
+// apps/web/next.config.ts
+export default {
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"}/api/:path*`,
+      },
+    ];
+  },
+};
+```
+
+---
+
+## Design decisions and assumptions
+
+### Authentication
+- JWT HS256, returned in the response body (`accessToken`). The client must store and send it as a `Bearer` token.
+- **Logout is stateless:** the server discards nothing; the client drops the token. A logged-out token remains technically valid until it expires. This is an intentional trade-off to avoid a token blacklist.
+- `createdById` always comes from the verified JWT, never from the request body. Accessing a resource owned by another user returns 404 (not 403) to avoid leaking existence.
+
+### Machines
+- Changing a machine's type from `Fan` to `Pump` while it has `TcAg` or `TcAs` sensors installed returns **409 Conflict**.
+- Deleting a machine cascades to its monitoring points, which cascade to their sensors and readings.
+
+### Monitoring points and sensors
+- "At least 2 monitoring points per machine" is a **UI-level warning only**; the API does not enforce a minimum.
+- `PUT /monitoring-points/:id/sensor` **replaces** the current sensor in a transaction. The Pump sensor rule is checked before any data is written; if the rule is violated, the existing sensor is preserved.
+- Sensor `id` is provided by the user and must be **globally unique** (it is the primary key). Re-assigning the same sensor ID to the same point it is already on replaces it in place.
+
+### Time-series data
+- A "time-series" belongs to a monitoring point; there is no separate "series" entity.
+- **Duplicate timestamps are silently ignored.** The response includes `received` (total sent) and `inserted` (actually written), so callers can detect re-submissions without receiving an error. This makes batch re-delivery safe.
+- Sensor model `HF+` is stored in the database as `HF_PLUS` (PostgreSQL enum restriction) and converted transparently. The API always exposes `"HF+"`.
+
+### Enum ordering
+- `MachineType` and `SensorModel` are declared alphabetically in the schema so that PostgreSQL enum sort order matches alphabetical order, making server-side sorting predictable.
+
+### Nx monorepo
+- Prisma schema and migrations live in `apps/api/prisma/`; the root `prisma.config.ts` points to them.
+- The generated Prisma client (`apps/api/src/generated/prisma/`) is git-ignored and must be regenerated after `npm install` or a schema change.
+- `libs/shared` is imported as `@full-stack-solution/shared`; the generated Prisma client may only be imported in `*.repository.ts`, `database/` and `container.ts` (enforced by ESLint).
