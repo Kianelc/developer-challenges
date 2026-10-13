@@ -11,6 +11,13 @@ export const notFoundHandler: RequestHandler = (req, res) => {
   });
 };
 
+function isPayloadTooLargeError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error as { type?: string }).type === "entity.too.large"
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof ZodError) {
@@ -29,6 +36,16 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
       error: {
         code: error.code,
         message: error.message,
+      },
+    });
+  } else if (isPayloadTooLargeError(error)) {
+    // body-parser rejects an oversized body with its own error, which would
+    // otherwise fall through to a 500 and report a client mistake as a server
+    // fault.
+    res.status(413).json({
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Request body is too large",
       },
     });
   } else if (

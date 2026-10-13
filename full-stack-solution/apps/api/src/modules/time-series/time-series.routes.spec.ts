@@ -1,4 +1,5 @@
 import { Router, type Express } from "express";
+import { MAX_READINGS_PER_BATCH } from "@full-stack-solution/shared";
 import request from "supertest";
 import { createApp } from "../../app";
 import { createAuthMiddleware } from "../auth/auth.middleware";
@@ -44,6 +45,27 @@ describe("time-series routes", () => {
         .post("/api/monitoring-points/p1/readings")
         .set("Authorization", auth)
         .send(body);
+
+    it("accepts a batch at the documented maximum size", async () => {
+      // MAX_READINGS_PER_BATCH readings serialize past the default body limit,
+      // so this is what proves the advertised maximum is actually reachable.
+      repository.pointBelongsToUser.mockResolvedValue(true);
+      repository.insertReadings.mockResolvedValue({
+        received: MAX_READINGS_PER_BATCH,
+        inserted: MAX_READINGS_PER_BATCH,
+      });
+
+      const start = Date.UTC(2026, 0, 1);
+      const response = await post({
+        readings: Array.from({ length: MAX_READINGS_PER_BATCH }, (_u, i) => ({
+          timestamp: new Date(start + i * 60_000).toISOString(),
+          value: -1234.567891,
+        })),
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.received).toBe(MAX_READINGS_PER_BATCH);
+    });
 
     it("inserts a batch and returns received/inserted counts", async () => {
       repository.pointBelongsToUser.mockResolvedValue(true);

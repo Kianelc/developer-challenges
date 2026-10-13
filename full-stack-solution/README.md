@@ -182,7 +182,8 @@ Sensor `model` must be `"TcAg"`, `"TcAs"` or `"HF+"`.
 | DELETE | `/api/monitoring-points/:id/readings`           | `from?`, `to?`            | `{ deleted }`              |
 
 `Reading`: `{ timestamp: string (ISO 8601 with time zone), value: number }`  
-Batch limit: **5 000 readings** per request.  
+Batch limit: **5 000 readings** per request (~264 KB; the ingest path accepts up to
+1 MB and answers `413` beyond that).  
 `from` and `to` are both inclusive. Duplicate `(monitoringPointId, timestamp)` pairs are silently skipped.
 
 ### Error format
@@ -190,7 +191,7 @@ Batch limit: **5 000 readings** per request.
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR | NOT_FOUND | UNAUTHORIZED | CONFLICT | BUSINESS_RULE_VIOLATION | INTERNAL_ERROR",
+    "code": "VALIDATION_ERROR | NOT_FOUND | UNAUTHORIZED | CONFLICT | BUSINESS_RULE_VIOLATION | PAYLOAD_TOO_LARGE | INTERNAL_ERROR",
     "message": "Human-readable description",
     "details": [{ "path": "field", "message": "what is wrong" }]
   }

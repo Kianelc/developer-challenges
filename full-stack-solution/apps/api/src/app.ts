@@ -11,11 +11,26 @@ export interface AppRouters {
   timeSeries: Router;
 }
 
-const READINGS_BODY_LIMIT = "256kb";
+/**
+ * Body limit for the readings ingest path.
+ *
+ * `MAX_READINGS_PER_BATCH` (5 000) readings serialize to roughly 320 KB
+ * compact (~65 bytes each in the worst case: millisecond timestamp plus a long
+ * negative value). 1 MB leaves room for a client that sends the batch
+ * formatted. The schema, not this limit, is what caps the number of readings.
+ */
+const READINGS_BODY_LIMIT = "1mb";
+const READINGS_PATH = "/api/monitoring-points/:id/readings";
 
 export function createApp(routers: Partial<AppRouters>): Express {
   const app = express();
   app.disable("x-powered-by");
+
+  // The ingest path accepts a larger body than every other route, and its
+  // parser has to be registered BEFORE the default one: body-parser skips a
+  // request whose body another parser already consumed, so a larger limit
+  // mounted further down never takes effect.
+  app.use(READINGS_PATH, express.json({ limit: READINGS_BODY_LIMIT }));
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
@@ -25,15 +40,7 @@ export function createApp(routers: Partial<AppRouters>): Express {
   if (routers.auth) app.use("/api/auth", routers.auth);
   if (routers.machines) app.use("/api/machines", routers.machines);
   if (routers.monitoringPoints) app.use("/api", routers.monitoringPoints);
-  if (routers.timeSeries) {
-    // Only the ingest path gets an expanded body limit.
-    app.use(
-      "/api/monitoring-points/:id/readings",
-      express.json({ limit: READINGS_BODY_LIMIT }),
-      routers.timeSeries,
-    );
-    app.use("/api", routers.timeSeries);
-  }
+  if (routers.timeSeries) app.use("/api", routers.timeSeries);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
