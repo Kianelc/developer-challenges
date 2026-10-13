@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import {
   createReadingsSchema,
+  readingsMetricsQuerySchema,
   readingsRangeQuerySchema,
 } from "@full-stack-solution/shared";
 import { getIdParam } from "../../shared/http/request";
@@ -25,7 +26,8 @@ export class TimeSeriesController {
   };
 
   getMetrics = async (req: Request, res: Response): Promise<void> => {
-    const query = readingsRangeQuerySchema.parse(req.query);
+    // `metric` is required here: see readingsMetricsQuerySchema.
+    const query = readingsMetricsQuerySchema.parse(req.query);
     res.json(
       await this.service.getMetrics(getIdParam(req), getUserId(req), query),
     );

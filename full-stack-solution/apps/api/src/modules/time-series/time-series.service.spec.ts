@@ -3,9 +3,12 @@ import type { TimeSeriesRepository } from "./time-series.repository";
 import { TimeSeriesService } from "./time-series.service";
 
 const input = {
-  readings: [{ timestamp: "2026-01-01T00:00:00.000Z", value: 1 }],
+  readings: [
+    { timestamp: "2026-01-01T00:00:00.000Z", value: 1, metric: "temperature" as const },
+  ],
 };
 const range = {};
+const metricsQuery = { metric: "temperature" as const };
 
 describe("TimeSeriesService", () => {
   let repository: jest.Mocked<TimeSeriesRepository>;
@@ -56,7 +59,9 @@ describe("TimeSeriesService", () => {
 
     it("returns the readings", async () => {
       ownership(true);
-      const readings = [{ timestamp: "2026-01-01T00:00:00.000Z", value: 1 }];
+      const readings = [
+        { timestamp: "2026-01-01T00:00:00.000Z", value: 1, metric: "temperature" as const },
+      ];
       repository.getReadings.mockResolvedValue(readings);
 
       const result = await service.getReadings("p1", "u1", range);
@@ -69,7 +74,7 @@ describe("TimeSeriesService", () => {
   describe("getMetrics", () => {
     it("throws NotFound when the point is not the user's", async () => {
       ownership(false);
-      await expect(service.getMetrics("p1", "u1", range)).rejects.toThrow(
+      await expect(service.getMetrics("p1", "u1", metricsQuery)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -77,6 +82,7 @@ describe("TimeSeriesService", () => {
     it("returns the metrics", async () => {
       ownership(true);
       const metrics = {
+        metric: "temperature" as const,
         count: 2,
         min: 1,
         max: 2,
@@ -86,7 +92,7 @@ describe("TimeSeriesService", () => {
       };
       repository.getMetrics.mockResolvedValue(metrics);
 
-      const result = await service.getMetrics("p1", "u1", range);
+      const result = await service.getMetrics("p1", "u1", metricsQuery);
 
       expect(result).toBe(metrics);
     });

@@ -4,6 +4,7 @@ import type {
   InsertReadingsResult,
   Reading,
   ReadingsMetrics,
+  ReadingsMetricsQuery,
   ReadingsRangeQuery,
   TimeSeriesCount,
 } from "@full-stack-solution/shared";
@@ -21,7 +22,7 @@ export interface TimeSeriesRepository {
 
   getMetrics(
     pointId: string,
-    query: ReadingsRangeQuery,
+    query: ReadingsMetricsQuery,
   ): Promise<ReadingsMetrics>;
 
   countByUser(userId: string): Promise<TimeSeriesCount>;
@@ -39,9 +40,13 @@ function buildDateRange(query: ReadingsRangeQuery) {
   return { ...(gte && { gte }), ...(lte && { lte }) };
 }
 
-function buildWhere(pointId: string, query: ReadingsRangeQuery) {
+function buildWhere(pointId: string, query: ReadingsRangeQuery | ReadingsMetricsQuery) {
   const timestamp = buildDateRange(query);
-  return { monitoringPointId: pointId, ...(timestamp && { timestamp }) };
+  return {
+    monitoringPointId: pointId,
+    ...(timestamp && { timestamp }),
+    ...(query.metric && { metric: query.metric }),
+  };
 }
 
 export class PrismaTimeSeriesRepository implements TimeSeriesRepository {
@@ -60,10 +65,11 @@ export class PrismaTimeSeriesRepository implements TimeSeriesRepository {
     { readings }: CreateReadingsInput,
   ): Promise<InsertReadingsResult> {
     const result = await this.prisma.reading.createManyAndReturn({
-      data: readings.map(({ timestamp, value }) => ({
+      data: readings.map(({ timestamp, value, metric }) => ({
         monitoringPointId: pointId,
         timestamp: new Date(timestamp),
         value,
+        metric,
       })),
       skipDuplicates: true,
     });
@@ -78,18 +84,25 @@ export class PrismaTimeSeriesRepository implements TimeSeriesRepository {
     const rows = await this.prisma.reading.findMany({
       where: buildWhere(pointId, query),
       orderBy: { timestamp: "asc" },
-      select: { timestamp: true, value: true },
+      select: { timestamp: true, value: true, metric: true },
     });
 
     return rows.map((r) => ({
       timestamp: r.timestamp.toISOString(),
       value: r.value,
+      metric: r.metric,
     }));
   }
 
+  /**
+   * Aggregates one quantity.
+   *
+   * `query.metric` is required by the schema: averaging a temperature with a
+   * vibration amplitude produces a number that describes nothing.
+   */
   async getMetrics(
     pointId: string,
-    query: ReadingsRangeQuery,
+    query: ReadingsMetricsQuery,
   ): Promise<ReadingsMetrics> {
     const agg = await this.prisma.reading.aggregate({
       where: buildWhere(pointId, query),
@@ -102,6 +115,7 @@ export class PrismaTimeSeriesRepository implements TimeSeriesRepository {
     const count = agg._count.timestamp;
     if (count === 0) {
       return {
+        metric: query.metric,
         count: 0,
         min: null,
         max: null,
@@ -112,6 +126,7 @@ export class PrismaTimeSeriesRepository implements TimeSeriesRepository {
     }
 
     return {
+      metric: query.metric,
       count,
       min: agg._min.value,
       max: agg._max.value,

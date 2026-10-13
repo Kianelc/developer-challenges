@@ -60,6 +60,7 @@ describe("time-series routes", () => {
         readings: Array.from({ length: MAX_READINGS_PER_BATCH }, (_u, i) => ({
           timestamp: new Date(start + i * 60_000).toISOString(),
           value: -1234.567891,
+          metric: "temperature" as const,
         })),
       });
 
@@ -73,8 +74,8 @@ describe("time-series routes", () => {
 
       const response = await post({
         readings: [
-          { timestamp: "2026-01-01T00:00:00.000Z", value: 1 },
-          { timestamp: "2026-01-02T00:00:00.000Z", value: 2 },
+          { timestamp: "2026-01-01T00:00:00.000Z", value: 1, metric: "temperature" },
+          { timestamp: "2026-01-02T00:00:00.000Z", value: 2, metric: "temperature" },
         ],
       });
 
@@ -82,8 +83,8 @@ describe("time-series routes", () => {
       expect(response.body).toEqual({ received: 2, inserted: 1 });
       expect(repository.insertReadings).toHaveBeenCalledWith("p1", {
         readings: [
-          { timestamp: "2026-01-01T00:00:00.000Z", value: 1 },
-          { timestamp: "2026-01-02T00:00:00.000Z", value: 2 },
+          { timestamp: "2026-01-01T00:00:00.000Z", value: 1, metric: "temperature" },
+          { timestamp: "2026-01-02T00:00:00.000Z", value: 2, metric: "temperature" },
         ],
       });
     });
@@ -91,7 +92,7 @@ describe("time-series routes", () => {
     it("returns 404 when the point is not the user's", async () => {
       repository.pointBelongsToUser.mockResolvedValue(false);
       const response = await post({
-        readings: [{ timestamp: "2026-01-01T00:00:00.000Z", value: 1 }],
+        readings: [{ timestamp: "2026-01-01T00:00:00.000Z", value: 1, metric: "temperature" }],
       });
 
       expect(response.status).toBe(404);
@@ -103,14 +104,14 @@ describe("time-series routes", () => {
 
     it("returns 400 for a timestamp without time zone", async () => {
       const response = await post({
-        readings: [{ timestamp: "2026-01-01T00:00:00", value: 1 }],
+        readings: [{ timestamp: "2026-01-01T00:00:00", value: 1, metric: "temperature" }],
       });
       expect(response.status).toBe(400);
     });
 
     it("returns 400 for a non-numeric value", async () => {
       const response = await post({
-        readings: [{ timestamp: "2026-01-01T00:00:00.000Z", value: "high" }],
+        readings: [{ timestamp: "2026-01-01T00:00:00.000Z", value: "high", metric: "temperature" }],
       });
       expect(response.status).toBe(400);
     });
@@ -124,7 +125,9 @@ describe("time-series routes", () => {
 
     it("returns the readings ordered by timestamp", async () => {
       repository.pointBelongsToUser.mockResolvedValue(true);
-      const readings = [{ timestamp: "2026-01-01T00:00:00.000Z", value: 1 }];
+      const readings = [
+        { timestamp: "2026-01-01T00:00:00.000Z", value: 1, metric: "temperature" as const },
+      ];
       repository.getReadings.mockResolvedValue(readings);
 
       const response = await get();
@@ -165,6 +168,7 @@ describe("time-series routes", () => {
     it("returns metrics for the monitoring point", async () => {
       repository.pointBelongsToUser.mockResolvedValue(true);
       const metrics = {
+        metric: "temperature" as const,
         count: 2,
         min: 1,
         max: 2,
@@ -175,11 +179,39 @@ describe("time-series routes", () => {
       repository.getMetrics.mockResolvedValue(metrics);
 
       const response = await request(app)
-        .get("/api/monitoring-points/p1/readings/metrics")
+        .get("/api/monitoring-points/p1/readings/metrics?metric=temperature")
         .set("Authorization", auth);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual(metrics);
+      expect(repository.getMetrics).toHaveBeenCalledWith("p1", {
+        metric: "temperature",
+      });
+    });
+
+    it("refuses to aggregate without a metric", async () => {
+      // Averaging a temperature together with a vibration amplitude would
+      // produce a number that describes nothing, so the quantity is required.
+      repository.pointBelongsToUser.mockResolvedValue(true);
+
+      const response = await request(app)
+        .get("/api/monitoring-points/p1/readings/metrics")
+        .set("Authorization", auth);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(repository.getMetrics).not.toHaveBeenCalled();
+    });
+
+    it("refuses an unknown metric", async () => {
+      repository.pointBelongsToUser.mockResolvedValue(true);
+
+      const response = await request(app)
+        .get("/api/monitoring-points/p1/readings/metrics?metric=pressure")
+        .set("Authorization", auth);
+
+      expect(response.status).toBe(400);
+      expect(repository.getMetrics).not.toHaveBeenCalled();
     });
   });
 

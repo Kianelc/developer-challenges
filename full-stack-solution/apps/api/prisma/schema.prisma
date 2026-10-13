@@ -13,6 +13,14 @@ enum MachineType {
   Pump
 }
 
+// Declared alphabetically on purpose: PostgreSQL sorts enums by declaration
+// order, so this keeps query ordering aligned with alphabetical order.
+enum MeasurementMetric {
+  temperature
+  vibrationAccelerationRms
+  vibrationVelocityRms
+}
+
 enum SensorModel {
   HF_PLUS @map("HF+")
   TcAg
@@ -66,9 +74,13 @@ model Sensor {
 
 model Reading {
   monitoringPointId String
+  metric MeasurementMetric
   timestamp DateTime
   value Float
   monitoringPoint MonitoringPoint @relation(fields: [monitoringPointId], references: [id], onDelete: Cascade)
 
-  @@id([monitoringPointId, timestamp])
+  // One sample per point, per quantity, per instant. The metric belongs in the
+  // key because a point reports several quantities at the same timestamp;
+  // without it the second one would be skipped as a duplicate.
+  @@id([monitoringPointId, metric, timestamp])
 }

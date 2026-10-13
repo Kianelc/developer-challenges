@@ -16,15 +16,15 @@ describe("PrismaTimeSeriesRepository", () => {
 
       const result = await repo.insertReadings("p1", {
         readings: [
-          { timestamp: ts1.toISOString(), value: 1.5 },
-          { timestamp: ts2.toISOString(), value: 2.5 },
+          { timestamp: ts1.toISOString(), value: 1.5, metric: "temperature" as const },
+          { timestamp: ts2.toISOString(), value: 2.5, metric: "temperature" as const },
         ],
       });
 
       expect(createManyAndReturn).toHaveBeenCalledWith({
         data: [
-          { monitoringPointId: "p1", timestamp: ts1, value: 1.5 },
-          { monitoringPointId: "p1", timestamp: ts2, value: 2.5 },
+          { monitoringPointId: "p1", timestamp: ts1, value: 1.5, metric: "temperature" },
+          { monitoringPointId: "p1", timestamp: ts2, value: 2.5, metric: "temperature" },
         ],
         skipDuplicates: true,
       });
@@ -37,7 +37,7 @@ describe("PrismaTimeSeriesRepository", () => {
     it("filters by date range and maps Dates to ISO strings", async () => {
       const findMany = jest
         .fn()
-        .mockResolvedValue([{ timestamp: ts1, value: 1 }]);
+        .mockResolvedValue([{ timestamp: ts1, value: 1, metric: "temperature" }]);
       const repo = new PrismaTimeSeriesRepository(
         asPrisma({ reading: { findMany } }),
       );
@@ -56,7 +56,9 @@ describe("PrismaTimeSeriesRepository", () => {
           orderBy: { timestamp: "asc" },
         }),
       );
-      expect(result).toEqual([{ timestamp: ts1.toISOString(), value: 1 }]);
+      expect(result).toEqual([
+        { timestamp: ts1.toISOString(), value: 1, metric: "temperature" },
+      ]);
     });
 
     it("omits the timestamp filter when neither bound is given", async () => {
@@ -87,9 +89,10 @@ describe("PrismaTimeSeriesRepository", () => {
         asPrisma({ reading: { aggregate } }),
       );
 
-      const result = await repo.getMetrics("p1", {});
+      const result = await repo.getMetrics("p1", { metric: "temperature" });
 
       expect(result).toEqual({
+        metric: "temperature",
         count: 0,
         min: null,
         max: null,
@@ -110,9 +113,10 @@ describe("PrismaTimeSeriesRepository", () => {
         asPrisma({ reading: { aggregate } }),
       );
 
-      const result = await repo.getMetrics("p1", {});
+      const result = await repo.getMetrics("p1", { metric: "temperature" });
 
       expect(result).toEqual({
+        metric: "temperature",
         count: 2,
         min: 1,
         max: 2,

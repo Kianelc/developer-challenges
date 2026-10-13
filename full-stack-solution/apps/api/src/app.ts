@@ -14,9 +14,9 @@ export interface AppRouters {
 /**
  * Body limit for the readings ingest path.
  *
- * `MAX_READINGS_PER_BATCH` (5 000) readings serialize to roughly 320 KB
- * compact (~65 bytes each in the worst case: millisecond timestamp plus a long
- * negative value). 1 MB leaves room for a client that sends the batch
+ * `MAX_READINGS_PER_BATCH` (4 000) readings serialize to roughly 400 KB
+ * compact (~100 bytes each: millisecond timestamp, a long negative value and
+ * the metric name). 1 MB leaves room for a client that sends the batch
  * formatted. The schema, not this limit, is what caps the number of readings.
  */
 const READINGS_BODY_LIMIT = "1mb";

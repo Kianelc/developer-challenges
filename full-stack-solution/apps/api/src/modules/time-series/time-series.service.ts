@@ -4,6 +4,7 @@ import type {
   InsertReadingsResult,
   Reading,
   ReadingsMetrics,
+  ReadingsMetricsQuery,
   ReadingsRangeQuery,
   TimeSeriesCount,
 } from "@full-stack-solution/shared";
@@ -34,7 +35,7 @@ export class TimeSeriesService {
   async getMetrics(
     pointId: string,
     userId: string,
-    query: ReadingsRangeQuery,
+    query: ReadingsMetricsQuery,
   ): Promise<ReadingsMetrics> {
     await this.assertOwnership(pointId, userId);
     return this.repository.getMetrics(pointId, query);
