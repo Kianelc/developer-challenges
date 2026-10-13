@@ -5,7 +5,6 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardHeader from "@mui/material/CardHeader";
-import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
 import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
@@ -15,6 +14,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { MIN_MONITORING_POINTS_PER_MACHINE } from "@full-stack-solution/shared";
 import { useAppDispatch, useAppSelector } from "@web/app/hooks";
 import { PageHeader } from "@web/components/common/PageHeader";
+import { ResponsiveGrid } from "@web/components/common/ResponsiveGrid";
 import { StatCard } from "@web/components/common/StatCard";
 import {
   fetchMachines,
@@ -74,37 +74,29 @@ export function OverviewPage() {
         </Alert>
       ) : null}
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Machines"
-            value={machines.length}
-            loading={machinesStatus === "loading"}
-            icon={<PrecisionManufacturingOutlinedIcon />}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Monitoring points"
-            value={monitoringPoints.length}
-            icon={<SensorsOutlinedIcon />}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Points without sensor"
-            value={withoutSensor}
-            icon={<WarningAmberOutlinedIcon />}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Readings stored"
-            value={formatNumber(storedCount, 0)}
-            icon={<TimelineOutlinedIcon />}
-          />
-        </Grid>
-      </Grid>
+      <ResponsiveGrid columns={{ xs: 1, sm: 2, md: 4 }}>
+        <StatCard
+          label="Machines"
+          value={machines.length}
+          loading={machinesStatus === "loading"}
+          icon={<PrecisionManufacturingOutlinedIcon />}
+        />
+        <StatCard
+          label="Monitoring points"
+          value={monitoringPoints.length}
+          icon={<SensorsOutlinedIcon />}
+        />
+        <StatCard
+          label="Points without sensor"
+          value={withoutSensor}
+          icon={<WarningAmberOutlinedIcon />}
+        />
+        <StatCard
+          label="Readings stored"
+          value={formatNumber(storedCount, 0)}
+          icon={<TimelineOutlinedIcon />}
+        />
+      </ResponsiveGrid>
 
       <Card>
         <CardHeader title="Next steps" />

@@ -3,7 +3,6 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardHeader from "@mui/material/CardHeader";
-import Grid from "@mui/material/Grid";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
@@ -16,6 +15,7 @@ import { ConfirmDialog } from "@web/components/common/ConfirmDialog";
 import { EmptyState } from "@web/components/common/EmptyState";
 import { ErrorAlert } from "@web/components/common/ErrorAlert";
 import { PageHeader } from "@web/components/common/PageHeader";
+import { ResponsiveGrid } from "@web/components/common/ResponsiveGrid";
 import { StatCard } from "@web/components/common/StatCard";
 import { fetchAllMonitoringPoints } from "@web/features/monitoring-points/monitoring-points.slice";
 import { notify } from "@web/features/notifications/notifications.slice";
@@ -197,105 +197,85 @@ export function TimeSeriesPage() {
           subheader="Both range bounds are inclusive and optional."
         />
         <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                select
-                fullWidth
-                label="Monitoring point"
-                value={selectedMonitoringPointId ?? ""}
-                onChange={(event) =>
-                  dispatch(monitoringPointSelected(event.target.value))
-                }
-              >
-                {monitoringPoints.map((point) => (
-                  <MenuItem key={point.id} value={point.id}>
-                    {point.machineName} · {point.name}
-                    {point.sensorModel ? ` (${point.sensorModel})` : ""}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="From"
-                type="datetime-local"
-                value={from}
-                onChange={(event) => setFrom(event.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="To"
-                type="datetime-local"
-                value={to}
-                onChange={(event) => setTo(event.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Stack direction="row" spacing={1} sx={{ height: "100%" }}>
-                <Button onClick={applyRange} variant="outlined" fullWidth>
-                  Apply
-                </Button>
-                <Button onClick={clearRange} fullWidth>
-                  Clear
-                </Button>
-              </Stack>
-            </Grid>
-          </Grid>
+          <ResponsiveGrid columns={{ xs: 1, sm: 2, md: 4 }}>
+            <TextField
+              select
+              fullWidth
+              label="Monitoring point"
+              value={selectedMonitoringPointId ?? ""}
+              onChange={(event) =>
+                dispatch(monitoringPointSelected(event.target.value))
+              }
+            >
+              {monitoringPoints.map((point) => (
+                <MenuItem key={point.id} value={point.id}>
+                  {point.machineName} · {point.name}
+                  {point.sensorModel ? ` (${point.sensorModel})` : ""}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              label="From"
+              type="datetime-local"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              label="To"
+              type="datetime-local"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Button onClick={applyRange} variant="outlined" fullWidth>
+                Apply
+              </Button>
+              <Button onClick={clearRange} fullWidth>
+                Clear
+              </Button>
+            </Stack>
+          </ResponsiveGrid>
         </CardContent>
       </Card>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Readings in range"
-            value={formatNumber(metrics?.count, 0)}
-            loading={status === "loading"}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Minimum"
-            value={formatNumber(metrics?.min)}
-            loading={status === "loading"}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Maximum"
-            value={formatNumber(metrics?.max)}
-            loading={status === "loading"}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Average"
-            value={formatNumber(metrics?.avg)}
-            loading={status === "loading"}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <StatCard
-            label="First reading"
-            value={formatTimestamp(metrics?.firstTimestamp ?? null)}
-            loading={status === "loading"}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <StatCard
-            label="Readings stored (all points)"
-            value={formatNumber(storedCount, 0)}
-            caption={`Last reading in range: ${formatTimestamp(
-              metrics?.lastTimestamp ?? null,
-            )}`}
-          />
-        </Grid>
-      </Grid>
+      <ResponsiveGrid columns={{ xs: 1, sm: 2, md: 3 }}>
+        <StatCard
+          label="Readings in range"
+          value={formatNumber(metrics?.count, 0)}
+          loading={status === "loading"}
+        />
+        <StatCard
+          label="Minimum"
+          value={formatNumber(metrics?.min)}
+          loading={status === "loading"}
+        />
+        <StatCard
+          label="Maximum"
+          value={formatNumber(metrics?.max)}
+          loading={status === "loading"}
+        />
+        <StatCard
+          label="Average"
+          value={formatNumber(metrics?.avg)}
+          loading={status === "loading"}
+        />
+        <StatCard
+          label="First reading"
+          value={formatTimestamp(metrics?.firstTimestamp ?? null)}
+          loading={status === "loading"}
+        />
+        <StatCard
+          label="Readings stored (all points)"
+          value={formatNumber(storedCount, 0)}
+          caption={`Last reading in range: ${formatTimestamp(
+            metrics?.lastTimestamp ?? null,
+          )}`}
+        />
+      </ResponsiveGrid>
 
       <Card>
         <CardHeader
