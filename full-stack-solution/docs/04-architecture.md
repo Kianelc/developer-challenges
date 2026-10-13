@@ -80,9 +80,10 @@ Why the layers earn their keep here:
    malformed body stops here as `400 VALIDATION_ERROR`.
 3. `monitoring-points.service.ts` loads the point **scoped to the user id**. Not
    found, or owned by someone else → `404`.
-4. The same service asks `isSensorModelAllowed(point.machineType, input.model)` —
-   the function from `libs/shared` the browser also called — and throws
-   `BusinessRuleError` → `422` if it says no. **The check happens before any write.**
+4. The same service asks `isSensorModelAllowed(...)` — the function from
+   `libs/shared` the browser also called — and throws `BusinessRuleError` → `422` if
+   it says no, **before any write**
+   ([BR-1](./07-business-rules.md#br-1--tcag-and-tcas-cannot-be-installed-on-a-pump)).
 5. `monitoring-points.repository.ts` replaces the sensor inside a transaction, so a
    failed install cannot leave the point without the sensor it had.
 6. `error-handler.ts` turns any thrown `AppError` or `ZodError` into the single error
@@ -122,11 +123,10 @@ component ──► thunk (createAsyncThunk) ──► <feature>.api.ts ──�
 | Open dialogs, form values, the date inputs | Component state |
 | Form validation | react-hook-form + the Zod schemas from `libs/shared` |
 
-**Side effects are thunks.** Redux Saga was the alternative; it was rejected because
-nothing here is long-lived, cancellable or orchestrated — see
-[Decisions](./11-decisions.md#d3--thunks-over-redux-saga). Every thunk reads the token
-via `requireToken(getState())` and rejects with `serializeApiError(error)`, so a
-reducer never receives a class instance Redux cannot serialize.
+**Side effects are thunks** ([D3](./11-decisions.md#d3--thunks-over-redux-saga)).
+Every thunk reads the token via `requireToken(getState())` and rejects with
+`serializeApiError(error)`, so a reducer never receives a class instance Redux cannot
+serialize.
 
 Two middlewares hold what would otherwise be copy-pasted into every feature:
 
@@ -136,15 +136,14 @@ Two middlewares hold what would otherwise be copy-pasted into every feature:
 - `app/token-persistence-middleware.ts` — the only code that writes the token to
   `localStorage`. Reducers stay pure; persistence follows the store from one place.
 
-### Why the list is paginated on the server
+### Consequence of server-side paging
 
-The monitoring points list joins machine, point and sensor, pages 5 rows and orders
-by any of four columns. Doing that in the browser would mean fetching the entire
-inventory to show five rows. So the query (`page`, `pageSize`, `sortBy`, `order`)
-lives in the slice, the server answers `{ data, page, pageSize, total }`, and the
-component only reports which column was clicked. The consequence: **after a mutation
-the list is refetched, never patched locally** — a local insert could place a row on
-a page it does not belong to.
+Paging and ordering happen in SQL
+([D7](./11-decisions.md#d7--pagination-and-sorting-on-the-server)), so the query
+(`page`, `pageSize`, `sortBy`, `order`) lives in the slice and the component only
+reports which column was clicked. It follows that **after a mutation the list is
+refetched, never patched locally** — a local insert could land a row on a page it
+does not belong to.
 
 ## Cross-cutting conventions
 
@@ -152,25 +151,19 @@ a page it does not belong to.
 |---------|-----------|
 | Validation | One Zod schema per payload in `libs/shared`, parsed by the controller and reused by the form. |
 | Errors | `{ error: { code, message, details? } }`, produced only by the global handler. Normalized client-side into `ApiError`. |
-| Authorization | Part of every query's `WHERE`, never a separate check that can be skipped. |
-| Enum ordering | `MachineType` and `SensorModel` are declared alphabetically so PostgreSQL's enum sort order matches alphabetical order, making server-side sorting predictable. |
-| `HF+` | Stored as `HF_PLUS` (PostgreSQL enum identifiers cannot contain `+`) and converted in exactly one place, `shared/database/sensor-model.mapper.ts`. The API always exposes `"HF+"`. |
+| Authorization | Part of every query's `WHERE`, never a separate check that can be skipped ([BR-10](./07-business-rules.md#br-10--every-row-belongs-to-its-creator-and-another-users-row-does-not-exist)) |
+| Enum ordering | Declared alphabetically, which server-side sorting depends on ([BR-12](./07-business-rules.md#br-12--enum-sort-order-must-match-alphabetical-order)) |
+| `HF+` | Stored as `HF_PLUS` and converted in exactly one place, `shared/database/sensor-model.mapper.ts` ([Domain Model](./05-domain-model.md#enumerations)) |
 
 ## Build and tasks
 
-Nx targets, run from `full-stack-solution/`:
+Commands are in the [root README](../README.md#running-tests-and-lint). Two things
+about how the targets are wired:
 
-```bash
-npx nx serve api                                  # :3000
-npx nx serve web                                  # :4200, proxies /api
-npx nx run-many -t test lint -p shared api web    # everything
-npx nx run-many -t typecheck test lint -p web     # frontend only, no database
-npx nx build web                                  # → dist/apps/web
-```
-
-`apps/web` wraps the Vite CLI through `nx:run-commands` rather than an Nx Vite plugin,
-which keeps the app free of plugin version constraints — relevant because this
-project is pinned to React 18 for MUI 5.
-
-Route components are lazily loaded, so the login screen does not download the
-dashboard and Recharts only arrives with the time-series page.
+- `apps/web` wraps the Vite CLI through `nx:run-commands` rather than an Nx Vite
+  plugin, which keeps the app free of plugin version constraints — relevant because
+  this project is pinned to React 18 for MUI 5
+  ([D1](./11-decisions.md#d1--vite-over-nextjs)).
+- Route components are lazily loaded, so the login screen does not download the
+  dashboard and the charting library only arrives with the time-series page
+  ([Performance](./14-performance.md#frontend)).

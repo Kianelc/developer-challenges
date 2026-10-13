@@ -37,8 +37,8 @@ implemented (scope decision)
 
 | Requirement | Status | Where |
 |---|---|---|
-| Make reasonable assumptions | ✅ | [Assumptions](./12-assumptions.md) — 12 entries, each with the alternative reading |
-| Document them in the README | ✅ | [Root README](../README.md#design-decisions-and-assumptions), expanded here |
+| Make reasonable assumptions | ✅ | [Assumptions](./12-assumptions.md) — 15 entries, each with the alternative reading |
+| Document them | ✅ | Same file, linked from the [root README](../README.md#documentation) |
 
 ## 5 — Technical requirements
 
@@ -51,7 +51,7 @@ implemented (scope decision)
 | Next.js **or** Vite | ✅ | Vite 8 ([D1](./11-decisions.md#d1--vite-over-nextjs)) |
 | Material UI 5 | ✅ | `@mui/material` 5.18.0; theme in `apps/web/src/theme` |
 | Reusable components | ✅ | `components/common/*`: `PageHeader`, `ConfirmDialog`, `ErrorAlert`, `EmptyState`, `StatCard`, `SortableTableHead` (generic over the sort field), `ResponsiveGrid`, the form-field wrappers, `AppSnackbar` |
-| Well-organized and documented code | ✅ | Feature folders, enforced layering, doc comments on non-obvious decisions, this `/docs` set |
+| Well-organized and documented code | ✅ | Feature folders, lint-enforced layering ([Architecture](./04-architecture.md)), doc comments on non-obvious decisions, this `/docs` set |
 | Responsive layout | ✅ | Sidebar → drawer below `lg`; stacking page headers; tables scroll inside their card; `ResponsiveGrid` |
 | Automated unit tests for business logic | ✅ | [Testing Strategy](./09-testing-strategy.md) |
 
@@ -66,18 +66,18 @@ implemented (scope decision)
 | Time-series storage and retrieval | ✅ | `time-series` module; composite-key `Reading` |
 | Proper error handling and validation | ✅ | Zod on every payload; one `AppError` hierarchy; one global handler; one error body shape |
 | Unit tests for backend code | ✅ | Service tests against repository fakes, plus route tests through Supertest |
-| Latency below 350 ms | ✅ | Measured — see [Performance](./14-performance.md) |
+| Latency below 350 ms | ✅ | Measured — see [Performance](./14-performance.md). The batch cap was lowered to 4 000 to keep the largest ingest inside the budget after readings grew |
 
 ## 7 — Time-series data management
 
 | Requirement | Status | Implementation |
 |---|---|---|
-| Store raw data as time series | ✅ | `POST /monitoring-points/:id/readings`, batches ≤ 5 000 |
-| Retrieve metrics | ✅ | `GET …/readings/metrics`, one SQL aggregate ([A6](./12-assumptions.md#a6--which-metrics)) |
+| Store raw data as time series | ✅ | `POST /monitoring-points/:id/readings`, batches ≤ 4 000, each reading carrying its quantity |
+| Retrieve metrics | ✅ | `GET …/readings/metrics`, one SQL aggregate, scoped to one quantity ([A6](./12-assumptions.md#a6--which-metrics), [BR-15](./07-business-rules.md#br-15--an-aggregate-covers-exactly-one-quantity)) |
 | Delete data I have sent | ✅ | `DELETE …/readings`, whole series or a range ([A7](./12-assumptions.md#a7--must-deletion-be-all-or-by-range)) |
 | Retrieve the number stored | ✅ | `GET /readings/count` — readings, not series ([A5](./12-assumptions.md#a5--what-is-a-time-series-as-a-resource)) |
 | Retrieve a full series | ✅ | `GET …/readings` with no range |
-| Visualize in a chart | ✅ | `ReadingsChart.tsx` (Recharts), with the metric tiles beside it |
+| Visualize in a chart | ✅ | `ReadingsChart.tsx` (Recharts): a numeric time axis with span-aware ticks, a Y axis labelled with the quantity and its unit, legend and unit-aware tooltip, and **one chart per quantity** so incompatible units never share an axis |
 
 ## 8 — Bonus
 
@@ -86,7 +86,7 @@ implemented (scope decision)
 | Nx monorepo | ✅ | Two apps + one shared library |
 | Cypress end-to-end tests | ❌ | Next item in the [backlog](./10-implementation-plan.md#next); flows covered by component tests and a verified manual pass |
 | Refactor provided baseline code | n/a | No baseline was provided; the one refactor done is recorded as [D11](./11-decisions.md#d11--native-css-grid-instead-of-mui-5s-grid) |
-| Cloud deployment | ❌ | [Scope](./03-scope.md#out-of-scope--and-why) |
+| Cloud deployment | ❌ | [Non-goals](./01-requirements.md#non-goals) |
 | Future prediction | ❌ | Would need a method defensible with real data |
 | Load balancer | ❌ | Infrastructure, not application design |
 | Load tests | ❌ | Same |
@@ -95,7 +95,7 @@ implemented (scope decision)
 
 | Criterion | Where to look |
 |---|---|
-| Anyone can follow the instructions and run it | [Root README](../README.md) — setup in six steps |
+| Anyone can follow the instructions and run it | [Root README](../README.md#setup) — six steps |
 | User stories implemented as specified | Sections 1–3 and 7 above |
 | Frontend integrated with the backend API | Every screen calls real endpoints; [verification](./09-testing-strategy.md#end-to-end-verification) |
 | Backend integrated with persistent storage | Prisma + PostgreSQL; migrations in `apps/api/prisma/migrations` |

@@ -49,12 +49,8 @@ Two rules make this hard to get wrong:
    `machineBelongsToUser`, `pointBelongsToUser`). There is no "load, then check"
    sequence that a new endpoint could skip.
 
-### Why another user's resource answers `404`, not `403`
-
-`403` means "it exists, but not for you" — which confirms the id. `404` for both the
-non-existent and the forbidden case keeps an attacker from enumerating ids. The cost
-is a slightly less precise error for a legitimate user hitting a stale link, which is
-the right trade.
+Another user's resource answers `404`, not `403`, so existence does not leak — the
+trade-off is in [D8](./11-decisions.md#d8--ownership-answers-404-not-403).
 
 ## Input validation
 
@@ -65,7 +61,7 @@ the right trade.
   to Prisma, so a crafted body cannot set a column the endpoint never meant to
   expose.
 - Values are constrained, not just typed — lengths are bounded, enums are closed
-  sets, `pageSize` is capped at 50, batches at 5 000 readings.
+  sets, `pageSize` is capped at 50, and a batch at `MAX_READINGS_PER_BATCH`.
 - `sortBy` and `order` come from closed enums, so the ordering clause is never
   assembled from user text. That is what keeps the dynamic `ORDER BY` out of
   injection range.
@@ -95,16 +91,15 @@ payload, and a single module (`features/auth/token-storage.ts`) that touches sto
 with every accessor guarded.
 
 The production answer is a short-lived access token in memory plus a refresh token in
-an `HttpOnly; Secure; SameSite` cookie with CSRF protection. That is a larger auth
-surface than the brief asks for, so it is explicitly out of scope
-([Scope](./03-scope.md)).
+an `HttpOnly; Secure; SameSite` cookie with CSRF protection — a larger auth surface
+than the brief asks for, so it is explicitly a
+[non-goal](./01-requirements.md#non-goals).
 
 ### Logout is stateless
 
-The server keeps no revocation list; logout drops the token client-side, and the
-token stays technically valid until it expires. A blacklist would need shared server
-state (Redis or a table) consulted on every request — real cost, little gain at a
-one-hour lifetime. Documented rather than silently accepted.
+The server keeps no revocation list, so a logged-out token stays valid until it
+expires ([D10](./11-decisions.md#d10--stateless-logout)). Documented rather than
+silently accepted.
 
 ### Not implemented
 
