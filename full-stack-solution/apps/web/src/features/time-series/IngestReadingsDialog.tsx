@@ -8,10 +8,14 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import MenuItem from "@mui/material/MenuItem";
 import {
   MAX_READINGS_PER_BATCH,
+  MEASUREMENT_METRICS,
   createReadingsSchema,
+  metricWithUnit,
   type CreateReadingsInput,
+  type MeasurementMetric,
 } from "@full-stack-solution/shared";
 import type { SerializedApiError } from "@web/api/api-error";
 import { ErrorAlert } from "@web/components/common/ErrorAlert";
@@ -78,6 +82,7 @@ function IngestReadingsForm({
   onSubmit,
   onClose,
 }: FormProps) {
+  const [metric, setMetric] = useState<MeasurementMetric>("temperature");
   const [text, setText] = useState(() =>
     JSON.stringify(generateSampleReadings(PREFILLED_SAMPLE_SIZE), null, 2),
   );
@@ -114,6 +119,32 @@ function IngestReadingsForm({
             </Alert>
           ) : null}
 
+          {/* Seeds the generator only — the editor content is what gets sent,
+              and every reading carries its own metric. */}
+          <TextField
+            select
+            label="Quantity for the generated sample"
+            value={metric}
+            onChange={(event) => {
+              const next = event.target.value as MeasurementMetric;
+              setMetric(next);
+              setText(
+                JSON.stringify(
+                  generateSampleReadings(PREFILLED_SAMPLE_SIZE, next),
+                  null,
+                  2,
+                ),
+              );
+            }}
+            fullWidth
+          >
+            {MEASUREMENT_METRICS.map((option) => (
+              <MenuItem key={option} value={option}>
+                {metricWithUnit(option)}
+              </MenuItem>
+            ))}
+          </TextField>
+
           <TextField
             label="Readings (JSON)"
             value={text}
@@ -131,16 +162,22 @@ function IngestReadingsForm({
             Up to {MAX_READINGS_PER_BATCH.toLocaleString()} readings per
             request. Each item is{" "}
             <code>
-              {'{ "timestamp": ISO 8601 with offset, "value": number }'}
+              {'{ "timestamp": ISO 8601 with offset, "value": number, "metric": ... }'}
             </code>
-            . Duplicate timestamps are skipped by the server.
+            . The metric names the physical quantity, which is what lets the
+            chart label its axis; a batch may mix quantities. Duplicate
+            timestamps of the same quantity are skipped by the server.
           </Typography>
 
           <div>
             <Button
               onClick={() =>
                 setText(
-                  JSON.stringify(generateSampleReadings(SAMPLE_SIZE), null, 2),
+                  JSON.stringify(
+                    generateSampleReadings(SAMPLE_SIZE, metric),
+                    null,
+                    2,
+                  ),
                 )
               }
               disabled={busy}

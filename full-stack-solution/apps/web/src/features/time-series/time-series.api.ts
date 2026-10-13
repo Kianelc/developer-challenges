@@ -4,6 +4,7 @@ import type {
   InsertReadingsResult,
   Reading,
   ReadingsMetrics,
+  ReadingsMetricsQuery,
   ReadingsRangeQuery,
   TimeSeriesCount,
 } from "@full-stack-solution/shared";
@@ -33,15 +34,19 @@ export function listReadings(
   );
 }
 
-/** `GET /api/monitoring-points/:id/readings/metrics` */
+/**
+ * `GET /api/monitoring-points/:id/readings/metrics`
+ *
+ * `metric` is required: the API refuses to aggregate across quantities.
+ */
 export function getMetrics(
   token: string,
   monitoringPointId: string,
-  range: ReadingsRangeQuery = {},
+  query: ReadingsMetricsQuery,
 ): Promise<ReadingsMetrics> {
   return request<ReadingsMetrics>(
     `/api/monitoring-points/${monitoringPointId}/readings/metrics`,
-    { token, query: { ...range } },
+    { token, query: { ...query } },
   );
 }
 

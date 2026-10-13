@@ -9,7 +9,15 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import DeleteSweepOutlinedIcon from "@mui/icons-material/DeleteSweepOutlined";
 import UploadOutlinedIcon from "@mui/icons-material/UploadOutlined";
-import type { CreateReadingsInput } from "@full-stack-solution/shared";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
+import {
+  METRIC_LABELS,
+  METRIC_UNITS,
+  type CreateReadingsInput,
+  type MeasurementMetric,
+} from "@full-stack-solution/shared";
 import { useAppDispatch, useAppSelector } from "@web/app/hooks";
 import { ConfirmDialog } from "@web/components/common/ConfirmDialog";
 import { EmptyState } from "@web/components/common/EmptyState";
@@ -27,8 +35,10 @@ import {
   fetchStoredCount,
   fetchTimeSeries,
   ingestReadings,
+  metricSelected,
   monitoringPointSelected,
   rangeChanged,
+  selectReadingsByMetric,
   timeSeriesErrorDismissed,
 } from "./time-series.slice";
 
@@ -59,6 +69,7 @@ export function TimeSeriesPage() {
     lastIngest,
   } = useAppSelector((state) => state.timeSeries);
   const monitoringPoints = useAppSelector((state) => state.monitoringPoints.all);
+  const seriesByMetric = useAppSelector(selectReadingsByMetric);
 
   const [ingestOpen, setIngestOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -103,6 +114,12 @@ export function TimeSeriesPage() {
       null,
     [monitoringPoints, selectedMonitoringPointId],
   );
+
+  // The quantity the aggregate actually describes, as answered by the API.
+  const aggregatedMetric = metrics?.metric ?? null;
+
+  const aggregateLabel = (name: string) =>
+    aggregatedMetric ? `${name} (${METRIC_UNITS[aggregatedMetric]})` : name;
 
   const applyRange = () => {
     dispatch(rangeChanged({ from: toIsoWithZone(from), to: toIsoWithZone(to) }));
@@ -242,24 +259,52 @@ export function TimeSeriesPage() {
         </CardContent>
       </Card>
 
+      {/* The aggregate describes one quantity: mixing units in a single
+          average would make the number meaningless. */}
+      {seriesByMetric.length > 1 ? (
+        <Stack spacing={1}>
+          <Typography color="text.secondary" variant="overline">
+            Aggregate for
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={aggregatedMetric}
+            onChange={(_event, value: MeasurementMetric | null) => {
+              if (value) {
+                dispatch(metricSelected(value));
+                void dispatch(fetchTimeSeries());
+              }
+            }}
+          >
+            {seriesByMetric.map(({ metric }) => (
+              <ToggleButton key={metric} value={metric}>
+                {METRIC_LABELS[metric]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Stack>
+      ) : null}
+
       <ResponsiveGrid columns={{ xs: 1, sm: 2, md: 3 }}>
         <StatCard
           label="Readings in range"
           value={formatNumber(metrics?.count, 0)}
+          caption={aggregatedMetric ? METRIC_LABELS[aggregatedMetric] : undefined}
           loading={status === "loading"}
         />
         <StatCard
-          label="Minimum"
+          label={aggregateLabel("Minimum")}
           value={formatNumber(metrics?.min)}
           loading={status === "loading"}
         />
         <StatCard
-          label="Maximum"
+          label={aggregateLabel("Maximum")}
           value={formatNumber(metrics?.max)}
           loading={status === "loading"}
         />
         <StatCard
-          label="Average"
+          label={aggregateLabel("Average")}
           value={formatNumber(metrics?.avg)}
           loading={status === "loading"}
         />
@@ -277,27 +322,40 @@ export function TimeSeriesPage() {
         />
       </ResponsiveGrid>
 
-      <Card>
-        <CardHeader
-          title={selectedPoint ? `${selectedPoint.name} — raw series` : "Raw series"}
-          subheader={
-            selectedPoint
-              ? `${selectedPoint.machineName} (${selectedPoint.machineType})`
-              : undefined
-          }
-        />
-        {status === "loading" || isMutating ? <LinearProgress /> : null}
-        <CardContent>
-          {readings.length === 0 ? (
-            <EmptyState
-              title="No readings in this range"
-              description="Send readings or widen the range to see the series."
+      {readings.length === 0 ? (
+        <Card>
+          {status === "loading" || isMutating ? <LinearProgress /> : null}
+          <EmptyState
+            title="No readings in this range"
+            description="Send readings or widen the range to see the series."
+          />
+        </Card>
+      ) : (
+        // One chart per quantity: temperature and vibration share neither unit
+        // nor range, so a single axis would invite reading one as the other.
+        seriesByMetric.map(({ metric, readings: series }) => (
+          <Card key={metric}>
+            <CardHeader
+              // The unit belongs to the Y axis; repeating it here would state
+              // the same thing twice on one card.
+              title={METRIC_LABELS[metric]}
+              subheader={
+                selectedPoint
+                  ? `${selectedPoint.machineName} (${selectedPoint.machineType}) · ${selectedPoint.name}${
+                      selectedPoint.sensorModel
+                        ? ` · sensor ${selectedPoint.sensorId} (${selectedPoint.sensorModel})`
+                        : ""
+                    } · ${series.length} readings`
+                  : `${series.length} readings`
+              }
             />
-          ) : (
-            <ReadingsChart readings={readings} />
-          )}
-        </CardContent>
-      </Card>
+            {status === "loading" || isMutating ? <LinearProgress /> : null}
+            <CardContent>
+              <ReadingsChart readings={series} metric={metric} />
+            </CardContent>
+          </Card>
+        ))
+      )}
 
       <IngestReadingsDialog
         open={ingestOpen}

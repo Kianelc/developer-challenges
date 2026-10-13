@@ -5,8 +5,10 @@ import {
   deleteReadings,
   fetchTimeSeries,
   ingestReadings,
+  metricSelected,
   monitoringPointSelected,
   rangeChanged,
+  selectReadingsByMetric,
 } from "./time-series.slice";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -52,6 +54,7 @@ describe("selection", () => {
         selectedMonitoringPointId: "point-1",
         range: {},
         readings: makeReadings(),
+        selectedMetric: null,
         metrics: makeMetrics(),
         storedCount: 3,
         status: "succeeded",
@@ -157,6 +160,7 @@ describe("ingestReadings", () => {
         selectedMonitoringPointId: "point-1",
         range: {},
         readings,
+        selectedMetric: null,
         metrics: makeMetrics(),
         storedCount: 3,
         status: "succeeded",
@@ -189,5 +193,119 @@ describe("deleteReadings", () => {
 
     expect(result.payload).toEqual({ deleted: 3 });
     expect(store.getState().timeSeries.storedCount).toBe(0);
+  });
+});
+
+describe("quantities", () => {
+  /** Readings of two quantities interleaved, as the API returns them. */
+  const mixed = [
+    { timestamp: "2026-01-01T00:00:00.000Z", value: 45, metric: "temperature" as const },
+    { timestamp: "2026-01-01T00:00:00.000Z", value: 2.5, metric: "vibrationVelocityRms" as const },
+    { timestamp: "2026-01-01T00:01:00.000Z", value: 46, metric: "temperature" as const },
+  ];
+
+  it("groups readings by quantity, in order of first appearance", () => {
+    const store = createStore({
+      ...authenticated,
+      timeSeries: {
+        selectedMonitoringPointId: "point-1",
+        range: {},
+        readings: mixed,
+        selectedMetric: null,
+        metrics: null,
+        storedCount: null,
+        status: "succeeded",
+        isMutating: false,
+        error: null,
+        lastIngest: null,
+      },
+    });
+
+    const groups = selectReadingsByMetric(store.getState());
+
+    expect(groups.map((group) => group.metric)).toEqual([
+      "temperature",
+      "vibrationVelocityRms",
+    ]);
+    expect(groups[0].readings).toHaveLength(2);
+    expect(groups[1].readings).toHaveLength(1);
+  });
+
+  it("aggregates the first quantity present when none was chosen", async () => {
+    routeFetch({
+      "/readings/metrics": makeMetrics(),
+      "/readings": mixed,
+    });
+    const store = createStore(authenticated);
+    store.dispatch(monitoringPointSelected("point-1"));
+
+    await store.dispatch(fetchTimeSeries());
+
+    const metricsUrl = fetchMock.mock.calls
+      .map(([url]) => url as string)
+      .find((url) => url.includes("/readings/metrics"));
+    expect(metricsUrl).toContain("metric=temperature");
+  });
+
+  it("aggregates the chosen quantity", async () => {
+    routeFetch({
+      "/readings/metrics": makeMetrics({ metric: "vibrationVelocityRms" }),
+      "/readings": mixed,
+    });
+    const store = createStore(authenticated);
+    store.dispatch(monitoringPointSelected("point-1"));
+    store.dispatch(metricSelected("vibrationVelocityRms"));
+
+    await store.dispatch(fetchTimeSeries());
+
+    const metricsUrl = fetchMock.mock.calls
+      .map(([url]) => url as string)
+      .find((url) => url.includes("/readings/metrics"));
+    expect(metricsUrl).toContain("metric=vibrationVelocityRms");
+  });
+
+  it("falls back when the chosen quantity is absent from the range", async () => {
+    routeFetch({
+      "/readings/metrics": makeMetrics(),
+      "/readings": [mixed[0]],
+    });
+    const store = createStore(authenticated);
+    store.dispatch(monitoringPointSelected("point-1"));
+    store.dispatch(metricSelected("vibrationAccelerationRms"));
+
+    await store.dispatch(fetchTimeSeries());
+
+    const metricsUrl = fetchMock.mock.calls
+      .map(([url]) => url as string)
+      .find((url) => url.includes("/readings/metrics"));
+    // Asking the API to aggregate a quantity the range does not hold would
+    // only return an empty aggregate labelled with the wrong quantity.
+    expect(metricsUrl).toContain("metric=temperature");
+  });
+
+  it("asks for no aggregate when the range holds no readings", async () => {
+    routeFetch({ "/readings": [] });
+    const store = createStore(authenticated);
+    store.dispatch(monitoringPointSelected("point-1"));
+
+    await store.dispatch(fetchTimeSeries());
+
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        (url as string).includes("/readings/metrics"),
+      ),
+    ).toBe(false);
+    expect(store.getState().timeSeries.metrics).toBeNull();
+    expect(store.getState().timeSeries.status).toBe("succeeded");
+  });
+
+  it("forgets the chosen quantity when another point is selected", () => {
+    const store = createStore(authenticated);
+    store.dispatch(monitoringPointSelected("point-1"));
+    store.dispatch(metricSelected("vibrationVelocityRms"));
+
+    store.dispatch(monitoringPointSelected("point-2"));
+
+    expect(store.getState().timeSeries.selectedMetric).toBeNull();
   });
 });

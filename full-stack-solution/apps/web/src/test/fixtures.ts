@@ -1,5 +1,6 @@
 import type {
   Machine,
+  MeasurementMetric,
   MonitoringPoint,
   Reading,
   ReadingsMetrics,
@@ -32,10 +33,14 @@ export function makeMonitoringPoint(
   };
 }
 
-export function makeReadings(count = 3): Reading[] {
+export function makeReadings(
+  count = 3,
+  metric: MeasurementMetric = "temperature",
+): Reading[] {
   return Array.from({ length: count }, (_unused, index) => ({
     timestamp: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
     value: index,
+    metric,
   }));
 }
 
@@ -43,6 +48,7 @@ export function makeMetrics(
   overrides: Partial<ReadingsMetrics> = {},
 ): ReadingsMetrics {
   return {
+    metric: "temperature",
     count: 3,
     min: 0,
     max: 2,
