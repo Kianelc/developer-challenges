@@ -12,7 +12,7 @@ how, and what is **not** covered by it.
 | Samples | 20 per read endpoint, 8 per ingest batch size |
 | Reported | min / median / p95 / max, in milliseconds |
 | Client | Same machine as the server; `localhost`, so network transit is ~0 |
-| Dataset | One machine, monitoring points with sensors, and **5 000 readings** on the point under test |
+| Dataset | One machine, monitoring points with sensors, and **5 000 readings** on the point under test (read endpoints) |
 | Machine | 12 logical CPUs, 7 GB RAM, Linux 6.8, PostgreSQL 16 in Docker, Node 22 |
 | Load | Sequential requests on an otherwise idle machine |
 
@@ -55,18 +55,28 @@ Two results worth reading closely:
 Fresh monitoring point per batch size, so every row is a real insert rather than a
 skipped duplicate.
 
-| Request | min | median | p95 | max |
-|---|---|---|---|---|
-| `POST …/readings`, 100 readings | 9 | 11 | 14 | 17 |
-| `POST …/readings`, 500 readings | 28 | 31 | 34 | 36 |
-| `POST …/readings`, 1 000 readings | 51 | 55 | 61 | 65 |
-| `POST …/readings`, **5 000 readings** (the cap, ~264 KB) | 246 | 250 | **254** | 256 |
+Measured after readings gained their `metric`, which made each one ~37% larger
+(~100 bytes compact). Six to eight samples per size, each into a fresh monitoring
+point so every row is a real insert.
 
-Cost is linear in batch size at roughly **50 ms per 1 000 readings**, so the
-documented maximum lands at ~250 ms — inside the budget, with about 100 ms of
-headroom. That is what sets the cap: **5 000 is the largest batch that keeps a single
-request under 350 ms on this hardware**, which is the justification behind
-[BR-7](./07-business-rules.md#br-7--batch-size-is-capped-at-5-000-readings).
+| Request | bytes | min | median | p95 | max |
+|---|---|---|---|---|---|
+| `POST …/readings`, 2 000 readings | 200 KB | 133 | 144 | 148 | 172 |
+| `POST …/readings`, 2 500 readings | 250 KB | 158 | 165 | 170 | 172 |
+| `POST …/readings`, 3 000 readings | 300 KB | 191 | 195 | 196 | 198 |
+| `POST …/readings`, 3 500 readings | 350 KB | 220 | 231 | 235 | 236 |
+| `POST …/readings`, **4 000 readings** (the cap) | 400 KB | 250 | 265 | **274** | 286 |
+| ~~5 000 readings~~ (the previous cap) | 488 KB | 331 | **347** | 371 | 443 |
+
+Cost is linear at roughly **66 ms per 1 000 readings**. The last row is why the cap
+is now 4 000 rather than 5 000: the `metric` field pushed a full 5 000-reading batch
+to a median of 347 ms, over the 350 ms requirement at p95 and beyond. The cap exists
+precisely to keep one request inside that budget — see
+[BR-7](./07-business-rules.md#br-7--batch-size-is-capped-at-4-000-readings) — so it
+moved with the measurement instead of the requirement being quietly relaxed.
+
+At 4 000 the median is 265 ms and the worst observed sample 286 ms, leaving ~20%
+headroom.
 
 One caveat, observed: the **first** request after the server rebuilds takes ~476 ms —
 cold start, before the JIT warms up. It is excluded from the table above because it
@@ -89,15 +99,15 @@ by tests:
    `entity.too.large` fell through to the generic branch, reporting a client mistake as
    a server fault. It now maps to **`413 PAYLOAD_TOO_LARGE`**.
 
-After the fix, a 5 000-reading batch returns `{"received":5000,"inserted":5000}`, and a
-body past 1 MB returns `413`. The limit is now 1 MB, sized from the schema's own cap
-(5 000 × ~65 bytes ≈ 320 KB compact, with room for a formatted payload).
+After the fix, a full batch is accepted and a body past 1 MB returns `413`. The limit
+is 1 MB, sized from the schema's own cap (4 000 × ~100 bytes ≈ 400 KB compact, with
+room for a formatted payload).
 
 ## Why the endpoints are fast
 
 | Choice | Effect |
 |--------|--------|
-| `Reading`'s primary key is `(monitoringPointId, timestamp)` | Range reads and aggregates walk one index in order — no extra index, no sort step ([D5](./11-decisions.md#d5--readings-primary-key-is-monitoringpointid-timestamp)) |
+| `Reading`'s primary key is `(monitoringPointId, metric, timestamp)` | Range reads and aggregates walk one index in order — no extra index, no sort step ([D5](./11-decisions.md#d5--readings-primary-key-is-monitoringpointid-metric-timestamp)) |
 | Metrics computed with one SQL aggregate | 4 ms over 5 000 rows instead of transferring them |
 | Pagination and ordering in SQL | A page costs the same whatever the inventory size ([D7](./11-decisions.md#d7--pagination-and-sorting-on-the-server)) |
 | `pageSize` capped at 50 | No client can ask for an unbounded page |

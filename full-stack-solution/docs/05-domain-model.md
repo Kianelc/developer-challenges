@@ -21,10 +21,11 @@ frontend: `libs/shared/src/lib/*.ts`.
 └──┬──────────────┬──┘
    │ 1            │ 1       both Cascade on delete
    │ 0..1         │ *
-┌──▼──────┐   ┌───▼──────┐
-│ Sensor  │   │ Reading  │  (monitoringPointId, timestamp) → value
-│ id, mdl │   └──────────┘
-└─────────┘
+┌──▼──────┐   ┌───▼──────────────────────────────────────┐
+│ Sensor  │   │ Reading                                   │
+│ id, mdl │   │ (monitoringPointId, metric, timestamp)    │
+└─────────┘   │   → value                                 │
+              └───────────────────────────────────────────┘
 ```
 
 | Relationship | Cardinality | On delete |
@@ -107,35 +108,45 @@ Two deliberate choices:
 | Field | Type | Notes |
 |-------|------|-------|
 | `monitoringPointId` | `String` FK → MonitoringPoint | Part of the PK |
+| `metric` | `MeasurementMetric` | The physical quantity. Part of the PK |
 | `timestamp` | `DateTime` | Part of the PK |
-| `value` | `Float` | |
+| `value` | `Float` | Expressed in the unit of its `metric` |
 
-**The primary key is `(monitoringPointId, timestamp)`** — the one schema decision
-worth defending:
+**The primary key is `(monitoringPointId, metric, timestamp)`**, and there is no
+surrogate `id` — nothing addresses a single reading. Both the reasoning and the
+rejected alternative are in
+[D5](./11-decisions.md#d5--readings-primary-key-is-monitoringpointid-metric-timestamp);
+the consequences the key enforces are
+[BR-6](./07-business-rules.md#br-6--duplicate-readings-are-skipped-and-the-skip-is-reported)
+and [BR-14](./07-business-rules.md#br-14--a-quantity-is-part-of-a-readings-identity).
 
-1. It makes a duplicate sample a constraint, not a question. Re-sending a batch
-   cannot create a second row for the same instant, which is what makes re-delivery
-   safe (the endpoint reports `received` vs `inserted` so a re-send is visible rather
-   than a silent success).
-2. The composite index it creates is exactly the access pattern: *all readings of one
-   point, ordered by time, optionally bounded*. Range queries and the metrics
-   aggregate walk it in order with no extra index and no sort step.
-
-There is no surrogate `id`: nothing addresses a single reading, so a surrogate key
-would be a wider row and a second index for no query.
+**The unit is not stored**, only derived from `metric`
+([BR-13](./07-business-rules.md#br-13--every-reading-declares-its-physical-quantity-and-the-unit-is-derived)).
 
 ## Enumerations
 
 ```prisma
-enum MachineType { Fan  Pump }
-enum SensorModel { HF_PLUS @map("HF+")  TcAg  TcAs }
+enum MachineType       { Fan  Pump }
+enum SensorModel       { HF_PLUS @map("HF+")  TcAg  TcAs }
+enum MeasurementMetric { temperature  vibrationAccelerationRms  vibrationVelocityRms }
 ```
 
-Declared **alphabetically on purpose**. PostgreSQL sorts enum values by declaration
-order, not by label, so alphabetical declaration is what makes
-`ORDER BY machine.type` and `ORDER BY sensor.model` come out in the order the user
-expects from a column header. Reordering these declarations would silently change
-sort results — a migration, not a cosmetic edit.
+`MeasurementMetric` holds the three continuous telemetry quantities the DynaPredict
+platform charts ("Histórico de Velocidade RMS, Temperatura e Aceleração RMS"). Their
+units live in `libs/shared`, not in the database:
+
+| Metric | Unit | Source of the unit |
+|--------|------|--------------------|
+| `temperature` | `°C` | Stated in the platform manual |
+| `vibrationVelocityRms` | `mm/s` | ISO 20816 convention — see [Assumptions](./12-assumptions.md#a13--which-units-do-the-vibration-quantities-use) |
+| `vibrationAccelerationRms` | `m/s²` | Same |
+
+Spectral data, frequency bands and per-axis (X/Y/Z) breakdowns are deliberately
+absent: this system stores scalar samples, not signal analysis.
+
+All three are declared **alphabetically on purpose**, which server-side sorting
+depends on
+([BR-12](./07-business-rules.md#br-12--enum-sort-order-must-match-alphabetical-order)).
 
 `HF+` cannot be a PostgreSQL enum identifier, so it is stored as `HF_PLUS` and mapped
 in exactly one place, `apps/api/src/shared/database/sensor-model.mapper.ts`. Every
@@ -147,7 +158,8 @@ layer above it, and the whole API surface, speaks `"HF+"`.
 |-----------|-------------|
 | A sensor id is unique across the system | PK on `Sensor.id` |
 | A monitoring point holds at most one sensor | `@unique` on `Sensor.monitoringPointId` |
-| One reading per point per instant | PK `(monitoringPointId, timestamp)` |
+| One reading per point, per quantity, per instant | PK `(monitoringPointId, metric, timestamp)` |
+| Every reading declares its quantity | `metric` is `NOT NULL` and required by `readingSchema` |
 | `TcAg`/`TcAs` never installed on a `Pump` | Service check before any write, plus the type-change guard — see [Business Rules](./07-business-rules.md) |
 | Every row belongs to the authenticated user | `createdById` from the JWT; ownership in every query's `WHERE` |
 | A machine's type change cannot orphan an illegal sensor | Conflict check in `MachinesService.update` |
@@ -161,6 +173,7 @@ accepts a machine with none. It is surfaced as a warning in the UI; see
 | Migration | What it did |
 |-----------|-------------|
 | `20261008200350_init` | Initial schema |
-| `20261009192959_reading_composite_key` | Replaced `Reading`'s surrogate id with the composite primary key described above |
+| `20261009192959_reading_composite_key` | Replaced `Reading`'s surrogate id with a composite primary key |
+| `20261013150000_reading_metric` | Added `MeasurementMetric` and `Reading.metric`, and put the metric in the primary key. **Destructive:** the readings already stored carried no quantity, and assigning one would have misrepresented them, so they were deleted — leftover manual-test data only, since the seed creates no readings |
 
 Applied migrations are never edited; a schema change is a new migration.

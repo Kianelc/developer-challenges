@@ -23,7 +23,7 @@ they would fail on styling changes and pass on broken logic.
 |-------|-------|--------|----------------|
 | Pure domain rules | `libs/shared` | Jest | Schemas and rule predicates, no I/O |
 | Services | `apps/api/.../*.service.spec.ts` | Jest + repository fakes | Business rules and refusals, no database |
-| Repositories | `apps/api/.../*.repository.spec.ts` | Jest + PostgreSQL | SQL that is too specific to fake: paging, ordering, aggregates, conflict handling |
+| Repositories | `apps/api/.../*.repository.spec.ts` | Jest + a fake Prisma client | The query each repository builds: paging, ordering, the `where` it assembles, how it maps rows |
 | Routes | `apps/api/.../*.routes.spec.ts` | Jest + Supertest | Status codes, validation, auth, the error body |
 | Slices & middlewares | `apps/web/src/**/*.spec.ts` | Vitest | State transitions, with `fetch` stubbed |
 | Components | `apps/web/src/**/*.spec.tsx` | Vitest + Testing Library | Behavior a user can reach |
@@ -36,20 +36,17 @@ behind the same `nx test` target.
 
 | Project | Files | Tests | Runner | Needs the database |
 |---------|-------|-------|--------|--------------------|
-| `libs/shared` | 5 | 46 | Jest | no |
-| `apps/api` | 14 | 137 | Jest | yes |
-| `apps/web` | 17 | 86 | Vitest | no |
-| **Total** | **36** | **269** | | |
+| `libs/shared` | 6 | 58 | Jest | no |
+| `apps/api` | 14 | 139 | Jest | no |
+| `apps/web` | 18 | 107 | Vitest | no |
+| **Total** | **38** | **304** | | |
 
-All three were run and observed at these numbers. Warm, the API suite finishes in
-about 5 seconds and the web suite in about 4. One earlier run took ~18 minutes — a
-cold `ts-jest` compile while the web suite and two dev servers competed for the same
-CPU — so the frontend also has a command that needs no database at all:
+All three were run and observed at these numbers, and each finishes in a handful of
+seconds. **No test touches PostgreSQL**: every repository spec injects a fake Prisma
+client, so the whole suite runs without Docker. The upside is speed; the cost is
+stated under [Known gaps](#known-gaps).
 
-```bash
-npx nx run-many -t typecheck test lint -p web      # seconds, no database
-npx nx run-many -t test lint -p shared api web     # everything
-```
+Commands are in the [root README](../README.md#running-tests-and-lint).
 
 ## What the design buys the tests
 
@@ -99,6 +96,12 @@ returns the store so an interaction can be checked by its effect on state.
 | The card grid has no negative margin and no `auto-fit` | `ResponsiveGrid.spec.tsx` |
 | A full `MAX_READINGS_PER_BATCH` batch is accepted (the ingest limit really is larger than the default) | `time-series.routes.spec.ts`, `app.spec.ts` |
 | An oversized body answers `413`, not `500` | `app.spec.ts` |
+| A reading without a quantity, or with one the system does not store, is rejected | `reading.spec.ts`, `time-series.routes.spec.ts` |
+| The aggregate refuses to run without a quantity | `reading.spec.ts`, `time-series.routes.spec.ts` |
+| Readings are grouped per quantity, and the aggregate follows the quantity actually present | `time-series.slice.spec.ts` |
+| The Y axis carries the quantity and **its own** unit | `ReadingsChart.spec.tsx` |
+| Samples sit on a time scale, so an irregular gap is not drawn as a regular one | `ReadingsChart.spec.tsx` |
+| The X axis tick format follows the span (seconds → year) | `format.spec.ts` |
 
 The last three exist because the bugs they describe were real: a layout regression
 ([D11](./11-decisions.md#d11--native-css-grid-instead-of-mui-5s-grid)) and an ingest
@@ -127,7 +130,7 @@ Stated so they are not mistaken for coverage.
 | **No browser-based end-to-end test** | Nothing automated proves the full click-path across pages | A full flow was verified manually (below); Cypress is the next backlog item |
 | **jsdom is not a layout engine** | `ResponsiveGrid`'s column counts are asserted from the generated stylesheet, not from measured geometry; media queries are not resolved | Visual check in a real browser, plus the structural assertions |
 | **No load or soak test** | Latency is known for single requests, not under concurrency | [Performance](./14-performance.md) states exactly what was measured |
-| **The API suite needs a live database** | Slow, and not runnable in a bare CI job without a service container | The frontend has a separate fast command |
+| **No test runs against PostgreSQL** | Anything only the database enforces is unproven by the suite: the cascades, the unique constraints, and the `(monitoringPointId, metric, timestamp)` primary key that lets several quantities share an instant | Verified manually against the running API (below); an integration suite against a disposable database is the honest fix |
 
 ## End-to-end verification
 

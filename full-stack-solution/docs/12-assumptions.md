@@ -47,8 +47,9 @@ the hardware.
 and the UI warns about machines below two.
 
 **Why.** Enforcing it server-side is self-defeating — points are created one request
-at a time, so the first point of any machine would be rejected. Written as a user
-story ("I want to create at least two…"), not as a constraint.
+at a time, so the first point of any machine would be rejected. The brief writes it
+as a user story ("I want to create at least two…"), not as a constraint. The rule as
+implemented is [BR-5](./07-business-rules.md#br-5--at-least-two-monitoring-points-per-machine-is-a-warning-not-a-constraint).
 
 **If read the other way.** Creation would have to accept an array of points atomically
 and refuse fewer than two, and deleting the second point of a machine would have to
@@ -155,11 +156,11 @@ See [D13](./11-decisions.md#d13--the-readings-editor-takes-a-json-batch).
 
 **Assumed.** Server-side handling of a single API request against a realistic local
 dataset, measured client-to-server — not the browser's full page load, and not a
-batch at the extreme of the 5 000-reading cap under contention.
+batch at the extreme of the cap under contention.
 
 **Why.** The brief says "the latency between client and the server side", which is the
-request/response round trip. What was actually measured, and how, is in
-[Performance](./14-performance.md).
+request/response round trip. What was measured, how, and what is **not** covered is
+in [Performance](./14-performance.md#method).
 
 ---
 
@@ -172,3 +173,65 @@ monitoring points, time series), and a login screen.
 explicitly its own screen. The overview exists because the "at least two monitoring
 points" warning (A3) and the stored-readings count need somewhere to live that is not
 buried in a list.
+
+---
+
+## A13 — Which units do the vibration quantities use?
+
+**Ambiguous.** The challenge never mentions physical quantities or units. The official
+sources name the quantities but not all of their units: the platform manual states
+temperature *"em ºC"* and charts *"Histórico de Velocidade RMS, Temperatura e
+Aceleração RMS"*, while neither the manual's extracted text nor the sensors page
+prints a unit for velocity or acceleration.
+
+**Assumed.** `°C` for temperature (documented), `mm/s` for velocity RMS and `m/s²` for
+acceleration RMS — the ISO 20816 convention for machine vibration, and the units
+named in the refactor brief itself.
+
+**Why it is recorded here.** The temperature unit is a fact taken from the manual; the
+other two are a convention adopted in the absence of a documented one. They are
+declared in one place (`METRIC_UNITS`), so correcting them later is a one-line change
+and cannot leave the axis and the tooltip disagreeing.
+
+**If read the other way.** Acceleration is also commonly reported in `g`; velocity
+occasionally in `in/s`. Either would change only that map.
+
+---
+
+## A14 — Which quantities does each sensor model report?
+
+**Ambiguous.** The brief warns against assuming every sensor offers the same
+measurements, while the official sensors page says all three models measure
+*"Temperatura e telemetria triaxiais"* — what distinguishes them is spectral analysis
+(absent on `TcAg`) and frequency range (2.5 kHz vs 13 kHz).
+
+**Assumed.** **No per-model restriction on quantities.** Spectral data and frequency
+range are not stored by this system, and the three telemetry quantities come from the
+same MEMS accelerometer and thermometer present in every model.
+
+**Why.** A capability map would encode a guess as if it were a fact, and the only
+documented differences are precisely the features that are out of scope here. The
+rule that *is* documented — which sensor models a machine type accepts — is enforced,
+in [BR-1](./07-business-rules.md#br-1--tcag-and-tcas-cannot-be-installed-on-a-pump).
+
+**If read the other way.** A `Record<SensorModel, MeasurementMetric[]>` in
+`libs/shared` would be the place, validated in the ingest service. It would need a
+documented source before it is worth the constraint.
+
+---
+
+## A15 — How does a client send a quantity?
+
+**Ambiguous.** Whether the quantity belongs to the batch or to each reading.
+
+**Assumed.** To **each reading**: `{ timestamp, value, metric }`. A batch may mix
+quantities, which is what a sensor sampling several at once produces.
+
+**Why.** A batch-level default would be a second way to express the same thing, and an
+omitted metric would then have to be either rejected (making the default pointless)
+or filled in by the server (fabricating meaning). One required field per reading is
+the smaller contract.
+
+**Impact.** This **breaks** the previous `{ timestamp, value }` payload. Accepted:
+there is no external consumer and the application is not deployed, and without the
+quantity the Y-axis requirement has no honest solution.

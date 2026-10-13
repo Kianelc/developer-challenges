@@ -88,29 +88,29 @@ the minimum, on both the overview and the machines list. Recorded in
 
 ## BR-6 — Duplicate readings are skipped, and the skip is reported
 
-**Implementation:** primary key `(monitoringPointId, timestamp)` + an insert that
-ignores conflicts, returning `{ received, inserted }`.
+**Implementation:** primary key `(monitoringPointId, metric, timestamp)` + an insert
+that ignores conflicts, returning `{ received, inserted }`.
 
-A sensor gateway that loses an acknowledgement resends its batch. Three options were
-considered:
+A gateway that loses an acknowledgement resends its batch, so re-sending has to be
+safe *and* visible: the counts let a caller tell "stored" from "already present",
+which a bare success could not. The alternatives are in
+[D6](./11-decisions.md#d6--duplicate-readings-are-skipped-and-reported).
 
-| Option | Why not |
-|--------|---------|
-| Reject the whole batch on any duplicate | A single overlapping sample would discard thousands of good readings |
-| Skip silently, return only success | A client cannot distinguish "stored" from "already had it" — data loss looks identical to success |
-| **Skip and report `received` vs `inserted`** | **Chosen.** Retry is safe *and* observable. |
-
-## BR-7 — Batch size is capped at 5 000 readings
+## BR-7 — Batch size is capped at 4 000 readings
 
 **Implementation:** `MAX_READINGS_PER_BATCH` in `libs/shared`, enforced by
 `createReadingsSchema` on both sides; the ingest route accepts a body of up to 1 MB,
-sized from that cap (5 000 × ~65 bytes ≈ 320 KB compact), while every other route
+sized from that cap (4 000 × ~100 bytes ≈ 400 KB compact), while every other route
 keeps the Express default. An oversized body answers `413 PAYLOAD_TOO_LARGE`.
 
-A cap is needed because the payload is unbounded otherwise, and 5 000 is the largest
-batch that keeps one request inside the latency budget — measured at ~250 ms against
+A cap is needed because the payload is unbounded otherwise, and 4 000 is the largest
+batch that keeps one request inside the latency budget — measured at ~265 ms against
 the 350 ms requirement ([Performance](./14-performance.md#ingest)) — while still
 being a realistic gateway batch.
+
+**The cap is a measured figure, not a round number.** It was 5 000 until readings
+gained their `metric`: each reading grew ~37%, and a full batch then measured 347 ms,
+past the requirement. The cap followed the measurement.
 
 The two limits have to agree: they did not, and the mismatch made the advertised
 maximum unreachable until it was measured. The regression is now pinned by a test
@@ -141,8 +141,8 @@ body); ownership is part of every query's `WHERE` (`findOwned`,
 `machineBelongsToUser`, `pointBelongsToUser`); a miss raises `NotFoundError` → **404**.
 
 Authorization is therefore a property of each query, not a separate check a new
-endpoint could forget. `404` rather than `403` keeps the existence of other users'
-ids from leaking. See [Security](./08-security.md).
+endpoint could forget. `404` rather than `403` keeps other users' ids from leaking
+([D8](./11-decisions.md#d8--ownership-answers-404-not-403)).
 
 ## BR-11 — Deleting cascades down the hierarchy
 
@@ -153,10 +153,53 @@ The cascade is in the database rather than in application code so it cannot be
 bypassed by a future code path. Both delete dialogs state what else will be removed
 before asking for confirmation.
 
+## BR-13 — Every reading declares its physical quantity, and the unit is derived
+
+**Implementation:** `metric` is required by `readingSchema` and `NOT NULL` in the
+schema; `METRIC_UNITS` and `METRIC_LABELS` in `libs/shared/src/lib/measurement.ts`
+map each quantity to its unit and name.
+
+A value without a quantity cannot be charted: an axis has to say what it measures,
+and `20.5` is a plausible temperature in °C and a plausible velocity in mm/s at the
+same time. So the quantity is part of the data, not inferred — and never guessed
+from the sensor model, which would be wrong the moment one sensor reports two
+quantities (they all do).
+
+**The unit is derived, never stored and never transmitted.** A stored unit would be a
+second source of truth, free to drift from the quantity it claims to describe; the
+client derives it from the same map the server uses. The quantities, their units and
+where those units come from are listed in
+[Domain Model](./05-domain-model.md#enumerations).
+
+## BR-14 — A quantity is part of a reading's identity
+
+**Implementation:** `metric` sits inside the primary key
+`(monitoringPointId, metric, timestamp)`.
+
+A sensor samples temperature and vibration together, so those readings share a
+timestamp. Keyed on `(point, timestamp)` alone, the second quantity of every sample
+would be silently dropped as a duplicate — the data would look ingested
+(`received: 3`) while only one row survived. Verified end to end: three quantities
+at one instant return `inserted: 3`, while re-sending the same quantity at that
+instant returns `inserted: 0`.
+
+## BR-15 — An aggregate covers exactly one quantity
+
+**Implementation:** `readingsMetricsQuerySchema` requires `metric`;
+`GET …/readings/metrics` answers `400` without it, and the response echoes the
+quantity.
+
+`min`, `max` and `avg` are only meaningful within one unit. Allowing the quantity to
+be omitted would produce an average of °C and mm/s — a number with no
+interpretation, displayed next to a label that could not name its unit.
+
+The UI follows the same rule: one chart per quantity, each with its own Y axis, and
+the aggregate tiles labelled with the unit of the quantity they describe.
+
 ## BR-12 — Enum sort order must match alphabetical order
 
-**Implementation:** `MachineType` and `SensorModel` are declared alphabetically in
-`schema.prisma`.
+**Implementation:** `MachineType`, `SensorModel` and `MeasurementMetric` are declared
+alphabetically in `schema.prisma`.
 
 PostgreSQL sorts enums by declaration order. The list must sort by `machineType` and
 `sensorModel`, and a user clicking a column header expects alphabetical. Reordering

@@ -78,7 +78,7 @@ of swapping a device.
 
 ---
 
-## D5 — `Reading`'s primary key is `(monitoringPointId, timestamp)`
+## D5 — `Reading`'s primary key is `(monitoringPointId, metric, timestamp)`
 
 **Decision.** A composite primary key; no surrogate id. Delivered as a migration
 (`20261009192959_reading_composite_key`) over the initial schema.
@@ -218,3 +218,47 @@ actual contract; a single-reading form would model a user who does not exist.
 **Consequences.** `parseReadingsPayload` validates with the shared schema before any
 request and reports the first issues by path, so an invalid batch never reaches the
 network. It accepts both a bare array and the `{ readings }` envelope.
+
+---
+
+## D14 — Readings carry their quantity; the unit is derived
+
+**Context.** The chart could not label its Y axis, because `Reading` was
+`{ timestamp, value }` — nothing said whether `20.5` was °C or mm/s.
+
+**Decision.** Add `metric` to each reading (a closed enum of the three quantities the
+platform charts) and derive the unit from it in `libs/shared`.
+
+**Rejected.** Storing a `unit` string beside the value — a second source of truth,
+free to disagree with the quantity; inferring the quantity from the sensor model —
+wrong the moment one sensor reports several quantities, which all of them do; a
+`metric` on the batch rather than on each reading — a second way to say the same
+thing, and an omitted one would have to be either rejected or invented.
+
+**Consequences.** The ingest contract breaks (`metric` is required), accepted because
+there is no external consumer. The quantity joined the primary key, the aggregate
+endpoint now requires a quantity, and the page renders one chart per quantity. The
+cap on batch size dropped from 5 000 to 4 000 because the extra field pushed a full
+batch past the latency budget.
+
+---
+
+## D15 — The X axis is a time scale, not a category axis
+
+**Context.** Samples were plotted with `dataKey="timestamp"` on string values.
+
+**Problem.** That is a category axis: Recharts spaces entries evenly, so a one-minute
+gap and a one-hour gap render identically. Measurements arrive at irregular
+intervals, so the chart was misrepresenting them. The tick format was also fixed to
+the time of day, which turns a three-month series into repeated clock readings.
+
+**Decision.** `type="number"` + `scale="time"` over epoch milliseconds, with the tick
+format chosen from the span of the axis (seconds → minutes → day/month → month/year →
+year).
+
+**Rejected.** Keeping the category axis and resampling the data to a regular interval
+— that would invent readings that were never taken; a custom scale — the library
+already has one.
+
+**Consequences.** Sample positions now reflect their instants, which a test pins by
+asserting that an irregular gap renders wider than a regular one.
