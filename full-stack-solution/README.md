@@ -110,6 +110,31 @@ npx nx build web
 
 Tests use mocked dependencies where appropriate and do not require the database or API to be running.
 
+### End-to-end tests (Cypress)
+
+These drive the real stack, so the database, the API and the frontend must all be
+running first (steps 4 and 5 above). `VITE_API_URL` must be empty so the browser
+goes through the dev-server proxy rather than to a deployed API.
+
+```bash
+npx nx e2e web-e2e        # headless
+npx nx e2e-open web-e2e   # interactive runner
+```
+
+One spec covers a full user flow: sign in, create a machine, add two monitoring
+points, install a sensor, confirm the API refuses `Fan` → `Pump` while `TcAg` is
+installed, send readings and see them charted with their unit, then sign out and
+confirm the private area stays closed.
+
+Credentials come from `SEED_USER_EMAIL` / `SEED_USER_PASSWORD`, so run
+`npx prisma db seed` after changing them. The spec names its data with a
+run-specific suffix and deletes the machine at the end, which cascades to its
+points, sensor and readings — a run leaves the database as it found it.
+
+> If Cypress fails to start with `bad option: --no-sandbox`, the shell has
+> `ELECTRON_RUN_AS_NODE=1` set (some editors export it). Run the command with
+> `env -u ELECTRON_RUN_AS_NODE`.
+
 ## API
 
 **Local base URL:** `http://localhost:3000/api`
