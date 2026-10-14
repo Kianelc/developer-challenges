@@ -93,7 +93,7 @@ The `HF+` model is stored as `HF_PLUS` in PostgreSQL because the `+` character c
 | `vibrationAccelerationRms` | `m/s²` |
 | `vibrationVelocityRms`     | `mm/s` |
 
-Units are defined in `libs/shared`, not in the database. Vibration units follow the conventions adopted by the project. Spectral data, frequency bands, and per-axis breakdowns (X/Y/Z) are outside the scope of this model. The system stores scalar samples and does not perform signal analysis. The `MeasurementMetric` values are declared in alphabetical order because server-side sorting depends on this convention ([BR-12](./07-business-rules.md#br-12--enum-sort-order-must-match-alphabetical-order)).
+Units are defined in `libs/shared`, not in the database. Vibration units follow the conventions adopted by the project. Spectral data, frequency bands, and per-axis breakdowns (X/Y/Z) are outside the scope of this model. The system stores scalar samples and does not perform signal analysis. The `MeasurementMetric` values are declared in alphabetical order because server-side sorting depends on this convention ([BR-12](./03-business-rules.md#br-12--enum-ordering)).
 
 ## 4. Domain Invariants
 

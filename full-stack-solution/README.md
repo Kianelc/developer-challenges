@@ -19,6 +19,18 @@ Use the following account to access the deployed application:
 
 **Note:** The API is hosted on Render and may take a short time to respond after a period of inactivity.
 
+### Deployment notes
+
+The frontend is a single-page application: the server returns one `index.html` and
+React Router decides what to render. Paths such as `/login` are routes inside the
+bundle, not files on disk, so the host has to fall back to `index.html` for any path
+it cannot find — otherwise a refresh or a direct link answers 404. That fallback is
+`vercel.json` in this directory, which Vercel reads from the project's configured
+**Root Directory**; the dev server does the same thing locally on its own.
+
+The API needs `CORS_ALLOWED_ORIGINS` set to the frontend origin, since the two are
+deployed to different hosts.
+
 ## Technologies
 
 - **Backend:** Node.js, Express 5, TypeScript, Prisma 7, and PostgreSQL 16.
@@ -152,10 +164,8 @@ All endpoints require an access token except `POST /auth/login` and `GET /health
 
 ## Documentation
 
-Technical documentation is organized in [`docs/`](./docs/README.md) and covers:
+Technical documentation is organized in [`docs/`](./docs/README.md):
 
-- Requirements and domain model.
-- Architecture and API contracts.
-- Business rules and security.
-- Testing strategy and performance.
-- Implementation plan, decisions, and requirements traceability.
+- [Architecture](./docs/01-architecture.md) — structure, runtime topology, layering and conventions.
+- [Domain Model](./docs/02-domain-model.md) — entities, schema, enumerations and invariants.
+- [Business Rules](./docs/03-business-rules.md) — the domain rules and how each one fails.
