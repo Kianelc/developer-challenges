@@ -60,6 +60,11 @@ export default defineConfig(({ mode }) => {
       include: ["src/**/*.spec.{ts,tsx}"],
       css: false,
       restoreMocks: true,
+      // The suite exercises the same-origin path the app uses behind the dev
+      // server proxy, so the base URL is pinned empty here. Without this, a
+      // developer with VITE_API_URL set in `.env` (pointing at a deployed API)
+      // would see the URL assertions fail for reasons unrelated to their change.
+      env: { VITE_API_URL: "" },
       // Worker threads start much faster than forked processes, which matters
       // when this suite shares the CPU with the database-backed API tests
       // (`nx run-many -t test`): with forks, workers were timing out before they
