@@ -1,25 +1,31 @@
 # Dynamox Full-Stack Challenge — Kiane Casagrande
 
-TypeScript monorepo (Nx) with an Express 5 REST API backed by PostgreSQL and a
-React single-page application.
+Full-stack application for managing industrial machines, monitoring points, sensors, and time-series readings.
 
-- `apps/api` — Express 5 + Prisma 7 + PostgreSQL 16
-- `apps/web` — Vite + React 18 + TypeScript + MUI 5 + Redux Toolkit
-- `libs/shared` — Zod schemas, domain types and business rules shared between apps
+## Technologies
 
----
+- **Backend:** Node.js, Express 5, TypeScript, Prisma 7, and PostgreSQL 16.
+- **Frontend:** React 18, Vite 8, TypeScript, MUI 5, Redux Toolkit, and Recharts.
+- **Shared:** Nx monorepo and Zod 4 for shared validation schemas and business rules.
 
-## Requirements
+```text
+full-stack-solution/
+├── apps/
+│   ├── api/       # REST API
+│   └── web/       # Frontend application
+└── libs/
+    └── shared/    # Shared schemas, types, and rules
+```
 
-- Node.js `^20.19` or `>=22.12` (required by Vite 8)
-- Docker (for PostgreSQL)
+## Getting Started
+
+### 1. Prerequisites
+
+- Node.js `^20.19` or `>=22.12`
 - npm 10+
+- Docker
 
----
-
-## Setup
-
-### 1. Clone and install dependencies
+### 2. Install dependencies
 
 ```bash
 git clone <repo-url>
@@ -27,140 +33,83 @@ cd full-stack-solution
 npm install
 ```
 
-### 2. Configure environment variables
+### 3. Configure the environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and fill in all required fields:
+Fill in the required variables in `.env`, including the PostgreSQL credentials, `DATABASE_URL`, `JWT_SECRET`, `SEED_USER_EMAIL`, and `SEED_USER_PASSWORD`.
 
-| Variable           | Description                                                       |
-|--------------------|-------------------------------------------------------------------|
-| `POSTGRES_USER`    | PostgreSQL username (choose any value)                            |
-| `POSTGRES_PASSWORD`| PostgreSQL password (choose any value)                            |
-| `POSTGRES_DB`      | Database name (default: `dynamox`)                                |
-| `POSTGRES_PORT`    | Host port mapped to PostgreSQL (default: `5432`)                  |
-| `DATABASE_URL`     | Prisma connection string — must match the credentials above       |
-| `PORT`             | API port (default: `3000`)                                        |
-| `JWT_SECRET`       | Random string ≥ 32 characters (`openssl rand -hex 32`)            |
-| `JWT_EXPIRES_IN`   | Token lifetime (default: `1h`)                                    |
-| `SEED_USER_EMAIL`  | Email for the fixed login user created by the seed                |
-| `SEED_USER_PASSWORD` | Password for that user (min. 8 characters)                      |
+Use a randomly generated JWT secret with at least 32 characters. Refer to `.env.example` for all available environment variables.
 
-Example `DATABASE_URL`:
-```
-DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/dynamox?schema=public
-```
-
-### 3. Start the database
+### 4. Start the database
 
 ```bash
 docker compose up -d
 ```
 
-Wait for the health check to pass (the `db` service shows `(healthy)`):
+Apply the database migrations and create the initial user:
 
 ```bash
-docker compose ps
+npx prisma migrate deploy
+npx prisma db seed
 ```
 
-### 4. Run migrations and seed the database
+### 5. Start the applications
 
-```bash
-npx prisma migrate deploy   # apply all migrations
-npx prisma db seed          # create the login user from SEED_USER_EMAIL / SEED_USER_PASSWORD
-```
-
-### 5. Start the API
+Start the API:
 
 ```bash
 npx nx serve api
 ```
 
-The API is available at `http://localhost:3000/api`.
-
-Health check: `GET http://localhost:3000/api/health` → `{"status":"ok"}`
-
-### 6. Start the web app
-
-In a second terminal, with the API already running:
+In a separate terminal, start the frontend:
 
 ```bash
 npx nx serve web
 ```
 
-Open `http://localhost:4200` and sign in with `SEED_USER_EMAIL` /
-`SEED_USER_PASSWORD`.
+Open `http://localhost:4200` and sign in using the credentials configured in `SEED_USER_EMAIL` and `SEED_USER_PASSWORD`.
 
-The dev server proxies `/api/*` to the API (`VITE_API_PROXY_TARGET`, default
-`http://localhost:3000`), so the browser only ever talks to one origin and no
-CORS configuration is needed.
+The API is available at `http://localhost:3000/api`.
 
----
+Health check: `GET /api/health`.
 
-## Running tests and lint
+## Testing and Code Quality
 
 ```bash
-# everything
+# Run tests and lint across all projects
 npx nx run-many -t test lint -p shared api web
 
-# frontend only, fastest loop
+# Type-check, test, and lint the frontend
 npx nx run-many -t typecheck test lint -p web
 
-# production build of the SPA → dist/apps/web
+# Build the frontend for production
 npx nx build web
 ```
 
-No test needs the database or a running API: every repository spec injects a fake
-Prisma client and the web tests stub `fetch`. What that buys and what it leaves
-unproven is in [Testing Strategy](./docs/09-testing-strategy.md).
-
----
+Tests use mocked dependencies where appropriate and do not require the database or API to be running.
 
 ## API
 
-Base URL `http://localhost:3000/api`. Every endpoint except `POST /auth/login` and
-`GET /health` needs `Authorization: Bearer <accessToken>`.
+Base URL: `http://localhost:3000/api`
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/auth/login` | Exchange credentials for a JWT |
-| GET | `/auth/me` | Validate the token, return its owner |
-| POST | `/auth/logout` | Stateless logout |
-| GET · POST | `/machines` | List · create |
-| PATCH · DELETE | `/machines/:id` | Update · delete (cascades) |
-| POST | `/machines/:id/monitoring-points` | Create a point on a machine |
-| GET | `/monitoring-points` | Paginated, sortable list |
-| PATCH · DELETE | `/monitoring-points/:id` | Rename · delete |
-| PUT · DELETE | `/monitoring-points/:id/sensor` | Install or replace · remove |
-| POST | `/monitoring-points/:id/readings` | Ingest a batch of readings |
-| GET | `/monitoring-points/:id/readings` | Read the series, optionally filtered |
-| GET | `/monitoring-points/:id/readings/metrics` | Aggregate one quantity |
-| DELETE | `/monitoring-points/:id/readings` | Delete the series or a range |
-| GET | `/readings/count` | Total readings stored by the user |
-| GET | `/health` | Liveness, no authentication |
+The API uses JWT authentication and provides the following features:
 
-**Payloads, query parameters, status codes and the error format:**
-[API Contracts](./docs/06-api-contracts.md).
+- Authentication and session management.
+- Machine creation and management.
+- Monitoring point and sensor management.
+- Ingestion, querying, aggregation, and deletion of time-series readings.
 
----
+All endpoints require an access token except `POST /auth/login` and `GET /health`.
 
 ## Documentation
 
-| Document | What it answers |
-|----------|-----------------|
-| [Requirements](./docs/01-requirements.md) | What the system does, its constraints and non-goals |
-| [Architecture](./docs/04-architecture.md) | How the pieces fit and how a request flows |
-| [Domain Model](./docs/05-domain-model.md) | Entities, relationships, schema and invariants |
-| [API Contracts](./docs/06-api-contracts.md) | Every endpoint in detail |
-| [Business Rules](./docs/07-business-rules.md) | The domain rules and how they fail |
-| [Security](./docs/08-security.md) | Authentication, authorization, trade-offs |
-| [Testing Strategy](./docs/09-testing-strategy.md) | What is tested, at which level, and the gaps |
-| [Implementation Plan](./docs/10-implementation-plan.md) | Status and backlog |
-| [Decisions](./docs/11-decisions.md) | Each decision, its alternative and the reasoning |
-| [Assumptions](./docs/12-assumptions.md) | Every ambiguity in the brief and how it was resolved |
-| [Traceability](./docs/13-requirements-traceability.md) | Where each challenge requirement lives |
-| [Performance](./docs/14-performance.md) | The 350 ms requirement, measured |
+Technical documentation is organized in [`docs/`](./docs/README.md) and covers:
 
-Start at [docs/README.md](./docs/README.md) for the full index.
+- Requirements and domain model.
+- Architecture and API contracts.
+- Business rules and security.
+- Testing strategy and performance.
+- Implementation plan, decisions, and requirements traceability.
