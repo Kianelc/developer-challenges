@@ -4,7 +4,7 @@ Full-stack application for managing industrial machines, monitoring points, sens
 
 ## Live Demo
 
-- **Frontend:** [https://developer-challenges.vercel.app/login](https://developer-challenges.vercel.app/login)
+- **Frontend:** [https://developer-challenges.vercel.app/](https://developer-challenges.vercel.app/)
 - **API:** [https://developer-challenges-4km3.onrender.com](https://developer-challenges-4km3.onrender.com)
 - **API Health Check:** [https://developer-challenges-4km3.onrender.com/api/health](https://developer-challenges-4km3.onrender.com/api/health)
 
