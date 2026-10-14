@@ -2,11 +2,30 @@
 
 Full-stack application for managing industrial machines, monitoring points, sensors, and time-series readings.
 
+## Live Demo
+
+- **Frontend:** [https://developer-challenges.vercel.app/login](https://developer-challenges.vercel.app/login)
+- **API:** [https://developer-challenges-4km3.onrender.com](https://developer-challenges-4km3.onrender.com)
+- **API Health Check:** [https://developer-challenges-4km3.onrender.com/api/health](https://developer-challenges-4km3.onrender.com/api/health)
+
+### Demo Credentials
+
+Use the following account to access the deployed application:
+
+| Field    | Value                 |
+| -------- | --------------------- |
+| Email    | `dynamox@dynamox.com` |
+| Password | `12345678`            |
+
+**Note:** The API is hosted on Render and may take a short time to respond after a period of inactivity.
+
 ## Technologies
 
 - **Backend:** Node.js, Express 5, TypeScript, Prisma 7, and PostgreSQL 16.
 - **Frontend:** React 18, Vite 8, TypeScript, MUI 5, Redux Toolkit, and Recharts.
 - **Shared:** Nx monorepo and Zod 4 for shared validation schemas and business rules.
+
+## Project Structure
 
 ```text
 full-stack-solution/
@@ -70,9 +89,9 @@ In a separate terminal, start the frontend:
 npx nx serve web
 ```
 
-Open `http://localhost:4200` and sign in using the credentials configured in `SEED_USER_EMAIL` and `SEED_USER_PASSWORD`.
+Open [http://localhost:4200](http://localhost:4200) and sign in using the credentials configured in `SEED_USER_EMAIL` and `SEED_USER_PASSWORD`.
 
-The API is available at `http://localhost:3000/api`.
+The API is available at [http://localhost:3000/api](http://localhost:3000/api).
 
 Health check: `GET /api/health`.
 
@@ -93,7 +112,9 @@ Tests use mocked dependencies where appropriate and do not require the database 
 
 ## API
 
-Base URL: `http://localhost:3000/api`
+**Local base URL:** `http://localhost:3000/api`
+
+**Production base URL:** `https://developer-challenges-4km3.onrender.com/api`
 
 The API uses JWT authentication and provides the following features:
 
