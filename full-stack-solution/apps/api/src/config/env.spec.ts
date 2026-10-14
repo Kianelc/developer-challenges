@@ -28,6 +28,31 @@ describe("env", () => {
       PORT: 4000,
       JWT_SECRET: validEnv.JWT_SECRET,
       JWT_EXPIRES_IN: "2h",
+      CORS_ALLOWED_ORIGINS: [],
+    });
+  });
+
+  describe("CORS_ALLOWED_ORIGINS", () => {
+    it("is empty when unset, which mounts no CORS middleware", () => {
+      delete process.env.CORS_ALLOWED_ORIGINS;
+
+      expect(loadEnv().CORS_ALLOWED_ORIGINS).toEqual([]);
+    });
+
+    it("splits a comma-separated list and trims each origin", () => {
+      process.env.CORS_ALLOWED_ORIGINS =
+        " https://app.example , https://preview.example ";
+
+      expect(loadEnv().CORS_ALLOWED_ORIGINS).toEqual([
+        "https://app.example",
+        "https://preview.example",
+      ]);
+    });
+
+    it("ignores empty entries from a trailing or doubled comma", () => {
+      process.env.CORS_ALLOWED_ORIGINS = "https://app.example,,";
+
+      expect(loadEnv().CORS_ALLOWED_ORIGINS).toEqual(["https://app.example"]);
     });
   });
 

@@ -1,8 +1,13 @@
 import express, { type Express, type Router } from "express";
+import cors from "cors";
 import {
   errorHandler,
   notFoundHandler,
 } from "./shared/middlewares/error-handler";
+
+export interface AppOptions {
+  allowedOrigins?: string[];
+}
 
 export interface AppRouters {
   auth: Router;
@@ -11,25 +16,30 @@ export interface AppRouters {
   timeSeries: Router;
 }
 
-/**
- * Body limit for the readings ingest path.
- *
- * `MAX_READINGS_PER_BATCH` (4 000) readings serialize to roughly 400 KB
- * compact (~100 bytes each: millisecond timestamp, a long negative value and
- * the metric name). 1 MB leaves room for a client that sends the batch
- * formatted. The schema, not this limit, is what caps the number of readings.
- */
+/** How long a browser may cache a preflight, saving a round trip per route. */
+const PREFLIGHT_CACHE_SECONDS = 86_400;
+
 const READINGS_BODY_LIMIT = "1mb";
 const READINGS_PATH = "/api/monitoring-points/:id/readings";
 
-export function createApp(routers: Partial<AppRouters>): Express {
+export function createApp(
+  routers: Partial<AppRouters>,
+  { allowedOrigins = [] }: AppOptions = {},
+): Express {
   const app = express();
   app.disable("x-powered-by");
 
-  // The ingest path accepts a larger body than every other route, and its
-  // parser has to be registered BEFORE the default one: body-parser skips a
-  // request whose body another parser already consumed, so a larger limit
-  // mounted further down never takes effect.
+  if (allowedOrigins.length > 0) {
+    app.use(
+      cors({
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        maxAge: PREFLIGHT_CACHE_SECONDS,
+      }),
+    );
+  }
+
   app.use(READINGS_PATH, express.json({ limit: READINGS_BODY_LIMIT }));
   app.use(express.json());
 

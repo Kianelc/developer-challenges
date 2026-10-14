@@ -8,6 +8,15 @@ export const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("1h"),
   SEED_USER_EMAIL: z.string().email(),
   SEED_USER_PASSWORD: z.string().min(8),
+  CORS_ALLOWED_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ),
 });
 
 const appEnvSchema = envSchema.omit({

@@ -5,7 +5,9 @@ import { createPrismaClient } from "./database/prisma";
 
 const env = loadEnv();
 const prisma = createPrismaClient(env.DATABASE_URL);
-const app = createApp(createRouters(env, prisma));
+const app = createApp(createRouters(env, prisma), {
+  allowedOrigins: env.CORS_ALLOWED_ORIGINS,
+});
 
 const server = app.listen(env.PORT, (error?: Error) => {
   if (error) {

@@ -39,6 +39,75 @@ describe("App", () => {
     expect(response.body.error.code).toBe("PAYLOAD_TOO_LARGE");
   });
 
+  describe("CORS", () => {
+    const ALLOWED = "https://developer-challenges.vercel.app";
+
+    it("mounts no CORS middleware when no origin is configured", async () => {
+      // The local setup: the dev server proxies /api, so the browser never
+      // makes a cross-origin request and nothing should be negotiated.
+      const response = await request(app)
+        .get("/api/health")
+        .set("Origin", ALLOWED);
+
+      expect(response.status).toBe(200);
+      expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+    });
+
+    it("allows a configured origin", async () => {
+      const response = await request(
+        createApp({ auth: Router() }, { allowedOrigins: [ALLOWED] }),
+      )
+        .get("/api/health")
+        .set("Origin", ALLOWED);
+
+      expect(response.status).toBe(200);
+      expect(response.headers["access-control-allow-origin"]).toBe(ALLOWED);
+    });
+
+    it("does not allow an origin that is not configured", async () => {
+      const response = await request(
+        createApp({ auth: Router() }, { allowedOrigins: [ALLOWED] }),
+      )
+        .get("/api/health")
+        .set("Origin", "https://attacker.example");
+
+      // The request still succeeds — CORS is enforced by the browser, which
+      // withholds the response from the page when this header is missing.
+      expect(response.status).toBe(200);
+      expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+    });
+
+    it("answers a preflight with the headers the client needs", async () => {
+      const response = await request(
+        createApp({ auth: Router() }, { allowedOrigins: [ALLOWED] }),
+      )
+        .options("/api/machines")
+        .set("Origin", ALLOWED)
+        .set("Access-Control-Request-Method", "POST")
+        .set("Access-Control-Request-Headers", "authorization");
+
+      expect(response.status).toBe(204);
+      expect(response.headers["access-control-allow-headers"]).toContain(
+        "Authorization",
+      );
+      expect(response.headers["access-control-allow-methods"]).toContain(
+        "PATCH",
+      );
+      expect(response.headers["access-control-max-age"]).toBe("86400");
+    });
+
+    it("supports several origins, for preview deployments", async () => {
+      const preview = "https://developer-challenges-git-main.vercel.app";
+      const response = await request(
+        createApp({ auth: Router() }, { allowedOrigins: [ALLOWED, preview] }),
+      )
+        .get("/api/health")
+        .set("Origin", preview);
+
+      expect(response.headers["access-control-allow-origin"]).toBe(preview);
+    });
+  });
+
   it("accepts a body on the readings path that the default limit would reject", async () => {
     // The ingest parser must be registered before the default one: body-parser
     // skips a request whose body was already consumed, which once made the
